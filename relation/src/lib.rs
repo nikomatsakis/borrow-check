@@ -96,20 +96,24 @@ impl<F: VecFamily> Relation<F> {
         }
     }
 
-    pub fn add_edge(&mut self, predecessor: NodeIndex, successor: NodeIndex) {
+    /// Adds an edge from `predecessor` to `successor`
+    ///
+    /// Returns true if the edge was added, and false if it already exists
+    pub fn add_edge(&mut self, predecessor: NodeIndex, successor: NodeIndex) -> bool {
         // Check that edge does not already exist.
         if self.successors(predecessor).any(|s| s == predecessor) {
-            return;
+            false
+        } else {
+            let next_incoming = self[successor].first_edges.incoming();
+            let next_outgoing = self[predecessor].first_edges.outgoing();
+            let edge_index = self.alloc_edge(EdgeData {
+                nodes: Indices::new(predecessor, successor),
+                next_edges: Indices::new(next_incoming, next_outgoing),
+            });
+            self[successor].first_edges.set_incoming(Some(edge_index));
+            self[predecessor].first_edges.set_outgoing(Some(edge_index));
+            true
         }
-
-        let next_incoming = self[successor].first_edges.incoming();
-        let next_outgoing = self[predecessor].first_edges.outgoing();
-        let edge_index = self.alloc_edge(EdgeData {
-            nodes: Indices::new(predecessor, successor),
-            next_edges: Indices::new(next_incoming, next_outgoing),
-        });
-        self[successor].first_edges.set_incoming(Some(edge_index));
-        self[predecessor].first_edges.set_outgoing(Some(edge_index));
     }
 
     fn count_edges_saturating(&mut self, node: NodeIndex, direction: Direction) -> usize {
