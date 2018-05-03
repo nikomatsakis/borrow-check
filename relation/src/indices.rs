@@ -42,13 +42,15 @@ index_type! {
 
 #[derive(Copy, Clone, Default, Debug)]
 crate struct Indices<N> {
-    values: (N, N),
+    incoming: N,
+    outgoing: N,
 }
 
 impl<N> Indices<N> {
     crate fn new(incoming: N, outgoing: N) -> Self {
         Indices {
-            values: (incoming, outgoing),
+            incoming,
+            outgoing,
         }
     }
 
@@ -56,28 +58,28 @@ impl<N> Indices<N> {
     where
         N: Copy,
     {
-        self.values.0
+        self.incoming
     }
 
     crate fn set_incoming(&mut self, value: N) {
-        self.values.0 = value;
+        self.incoming = value;
     }
 
     crate fn outgoing(&self) -> N
     where
         N: Copy,
     {
-        self.values.1
+        self.outgoing
     }
 
     crate fn set_outgoing(&mut self, value: N) {
-        self.values.1 = value;
+        self.outgoing = value;
     }
 }
 
 impl<N> Indices<Option<N>> {
     crate fn take_outgoing(&mut self) -> Option<N> {
-        self.values.1.take()
+        self.outgoing.take()
     }
 }
 
@@ -86,8 +88,8 @@ impl<N> Index<Direction> for Indices<N> {
 
     fn index(&self, direction: Direction) -> &Self::Output {
         match direction {
-            Direction::Incoming => &self.values.0,
-            Direction::Outgoing => &self.values.1,
+            Direction::Incoming => &self.incoming,
+            Direction::Outgoing => &self.outgoing,
         }
     }
 }
@@ -95,8 +97,8 @@ impl<N> Index<Direction> for Indices<N> {
 impl<N> IndexMut<Direction> for Indices<N> {
     fn index_mut(&mut self, direction: Direction) -> &mut Self::Output {
         match direction {
-            Direction::Incoming => &mut self.values.0,
-            Direction::Outgoing => &mut self.values.1,
+            Direction::Incoming => &mut self.incoming,
+            Direction::Outgoing => &mut self.outgoing,
         }
     }
 }
