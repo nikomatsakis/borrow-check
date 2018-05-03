@@ -37,6 +37,7 @@ pub struct EdgeData {
     next_edges: Indices<Option<EdgeIndex>>,
 }
 
+/// Represents a direction of an edge
 #[derive(Copy, Clone, Debug)]
 pub enum Direction {
     Incoming,
@@ -53,6 +54,10 @@ impl Direction {
 }
 
 impl<F: VecFamily> Relation<F> {
+    /// Creates a new `Relation` with `num_nodes` elements.
+    ///
+    /// There are no methods for adding nodes to a `Relation`, they are all
+    /// allocated and populated here.
     pub fn new(num_nodes: usize) -> Self {
         Self {
             nodes: F::NodeVec::with_default_elements(num_nodes),
@@ -185,6 +190,7 @@ impl<F: VecFamily> Relation<F> {
             cur_edge = edge_data.next_edges[direction].unwrap();
             if cur_edge == edge {
                 edge_data.next_edges[direction] = next_edge;
+                return;
             }
         }
     }
@@ -255,6 +261,7 @@ impl<F: VecFamily> Relation<F> {
     }
 
     fn redirect_only_incoming_edge(&mut self, node: NodeIndex, successor: NodeIndex) {
+        // unwrap will not panic as there must be an incoming edge for this function to be called
         let edge_to_redirect = self[node].first_edges.incoming().unwrap();
         let first_incoming_edge_of_successor = self[successor].first_edges.incoming();
         {
@@ -358,7 +365,7 @@ impl<F: VecFamily> Relation<F> {
     }
 }
 
-pub struct Edges<'r, F: VecFamily + 'r> {
+struct Edges<'r, F: VecFamily + 'r> {
     relation: &'r Relation<F>,
     edge_index: Option<EdgeIndex>,
     direction: Direction,
