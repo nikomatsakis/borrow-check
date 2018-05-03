@@ -37,10 +37,19 @@ pub struct EdgeData {
     next_edges: Indices<Option<EdgeIndex>>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Direction {
     Incoming,
     Outgoing,
+}
+
+impl Direction {
+    pub fn invert(self) -> Direction {
+        match self {
+            Direction::Incoming => Direction::Outgoing,
+            Direction::Outgoing => Direction::Incoming,
+        }
+    }
 }
 
 impl<F: VecFamily> Relation<F> {
@@ -96,17 +105,88 @@ impl<F: VecFamily> Relation<F> {
         }
     }
 
+    /// Take all the edges incident to `node` in the given direction
+    /// and move them over to the free list. When done, `node` will have
+    /// no edges left from that given direction.
+    ///
+    /// Example if invoked with `A` and `Outgoing`, then the graph:
+    ///
+    /// ```notrust
+    /// A -E0-> B
+    /// A -E1-> C
+    /// B -E2-> C
+    /// ```
+    ///
+    /// becomes:
+    ///
+    /// ```notrust
+    /// B -E2-> C
+    /// free list: E0, E1
+    /// ```
     fn move_edges_to_free_list(&mut self, node: NodeIndex, direction: Direction) {
+        println!(
+            "move_edges_to_free_list(node={:?}, direction={:?})",
+            node, direction
+        );
         let mut next_edge_to_remove = self[node].first_edges[direction];
+        let inv_direction = direction.invert();
+
+        // The new head of the free list.
         let mut next_free_list_edge = self.edge_free_list;
         while let Some(edge_to_remove) = next_edge_to_remove {
-            let edge_data = &mut self[edge_to_remove];
-            next_edge_to_remove = edge_data.next_edges[direction];
-            edge_data.next_edges.set_outgoing(next_free_list_edge);
+            let other_node;
+            let other_next_edge;
+
+            {
+                let edge_data = &mut self[edge_to_remove];
+                debug_assert_eq!(edge_data.nodes[inv_direction], node);
+                next_edge_to_remove = edge_data.next_edges[direction];
+                other_node = edge_data.nodes[direction];
+                other_next_edge = edge_data.next_edges[inv_direction];
+                edge_data.next_edges.set_outgoing(next_free_list_edge);
+            }
+
+            self.unlink_edge(other_node, inv_direction, edge_to_remove, other_next_edge);
             next_free_list_edge = Some(edge_to_remove);
         }
         self.edge_free_list = next_free_list_edge;
         self[node].first_edges[direction] = None;
+    }
+
+    /// Go through the list of edges for `node` (in the given
+    /// direction) until you find `edge`; remove it from the
+    /// list. Does not affect (or even read) the edge data for `edge`
+    /// in any way.
+    fn unlink_edge(
+        &mut self,
+        node: NodeIndex,
+        direction: Direction,
+        edge: EdgeIndex,
+        next_edge: Option<EdgeIndex>,
+    ) {
+        println!(
+            "unlink_edge(node={:?}, direction={:?}, edge={:?}, next_edge={:?})",
+            node, direction, edge, next_edge
+        );
+
+        let mut cur_edge;
+
+        {
+            let node_data = &mut self[node];
+            cur_edge = node_data.first_edges[direction].unwrap();
+            if cur_edge == edge {
+                node_data.first_edges[direction] = next_edge;
+                return;
+            }
+        }
+
+        loop {
+            let edge_data = &mut self[cur_edge];
+            cur_edge = edge_data.next_edges[direction].unwrap();
+            if cur_edge == edge {
+                edge_data.next_edges[direction] = next_edge;
+            }
+        }
     }
 
     /// Remove all edges from `node`, preserving transitive
@@ -155,12 +235,21 @@ impl<F: VecFamily> Relation<F> {
     fn move_only_outgoing_edge_to_free_list(&mut self, node: NodeIndex) -> NodeIndex {
         let edge_to_remove = self[node].first_edges.take_outgoing().unwrap();
         let successor_node;
+        let successor_next;
         {
             let edge_free_list = self.edge_free_list;
             let edge_data = &mut self[edge_to_remove];
+            debug_assert_eq!(edge_data.nodes.incoming(), node);
             successor_node = edge_data.nodes.outgoing();
+            successor_next = edge_data.next_edges.outgoing();
             edge_data.next_edges.set_outgoing(edge_free_list);
         }
+        self.unlink_edge(
+            successor_node,
+            Direction::Incoming,
+            edge_to_remove,
+            successor_next,
+        );
         self.edge_free_list = Some(edge_to_remove);
         successor_node
     }
@@ -237,9 +326,7 @@ impl<F: VecFamily> Relation<F> {
                 if edge_indices_observed.insert(edge) {
                     panic!(
                         "edge {:?} found in pred list of {:?} but not in succ lists; graph:\n{:#?}",
-                        edge,
-                        succ,
-                        self
+                        edge, succ, self
                     );
                 }
 
@@ -252,7 +339,6 @@ impl<F: VecFamily> Relation<F> {
                 );
             }
         }
-
 
         let mut next_free_edge = self.edge_free_list;
         while let Some(free_edge) = next_free_edge {
