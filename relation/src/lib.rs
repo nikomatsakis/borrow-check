@@ -232,6 +232,20 @@ impl<F: VecFamily> Relation<F> {
             return self.redirect_only_incoming_edge(node, successor);
         }
 
+        if outgoing_count == 1 {
+            // Before                  After
+            //
+            // A --+
+            //     |
+            //     v
+            //     C --> D         A --> D <-- B
+            //     ^
+            //     |
+            // B --+
+            let successor = self.move_only_outgoing_edge_to_free_list(node);
+            return self.redirect_incoming_edges(node, successor);
+        }
+
         panic!("not yet implemented");
     }
 
@@ -258,6 +272,10 @@ impl<F: VecFamily> Relation<F> {
         );
         self.edge_free_list = Some(edge_to_remove);
         successor_node
+    }
+
+    fn redirect_incoming_edges(&mut self, _node: NodeIndex, _successor: NodeIndex) {
+        unimplemented!()
     }
 
     fn redirect_only_incoming_edge(&mut self, node: NodeIndex, successor: NodeIndex) {
