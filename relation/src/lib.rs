@@ -19,10 +19,25 @@ use crate::indices::{EdgeIndex, Indices, NodeIndex};
 use crate::vec_family::{IndexVec, VecFamily};
 use std::ops::{Index, IndexMut};
 
+/// A graph data struture that preserve transitive reachability relationships.
+///
+/// For example, if we have a graph:
+///
+/// ```notrust
+/// A --> B
+/// B --> C
+/// ```
+///
+/// Upon removing `B`, we preserve that there exists a path from `A` to `C`, and so
+/// our graph becomes:
+/// ```notrust
+/// A --> C
+/// ```
 #[derive(Debug)]
 pub struct Relation<F: VecFamily> {
     nodes: F::NodeVec,
     edges: F::EdgeVec,
+    // NOTE/QUESTION: Why does this field only allow 0 or 1 elements in the free list?
     edge_free_list: Option<EdgeIndex>,
 }
 
