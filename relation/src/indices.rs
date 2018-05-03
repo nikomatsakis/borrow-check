@@ -2,9 +2,10 @@ use crate::index_vec::IndexType;
 use crate::Direction;
 use std::num::NonZeroU32;
 use std::ops::{Index, IndexMut};
+use std::fmt;
 
 macro_rules! index_type {
-    ($v:vis struct $n:ident { .. }) => {
+    ($v:vis struct $n:ident { prefix: $prefix:expr }) => {
         #[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
         $v struct $n {
             value: NonZeroU32
@@ -22,15 +23,21 @@ macro_rules! index_type {
                 (self.value.get() as usize) - 1
             }
         }
+
+        impl fmt::Debug for $n {
+            fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+                write!(fmt, "{}({})", $prefix, self.to_usize())
+            }
+        }
     }
 }
 
 index_type! {
-    pub struct EdgeIndex { .. }
+    pub struct EdgeIndex { prefix: "E" }
 }
 
 index_type! {
-    pub struct NodeIndex { .. }
+    pub struct NodeIndex { prefix: "N" }
 }
 
 #[derive(Copy, Clone, Default)]

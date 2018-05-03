@@ -11,7 +11,7 @@ pub trait IndexType: Copy + Ord + Eq + Hash + From<usize> {
     fn to_usize(self) -> usize;
 }
 
-pub trait IndexVec<I, T>
+pub trait IndexVec<I, T>: Default
 where
     I: IndexType,
 {
@@ -23,6 +23,7 @@ where
     fn get_mut(&mut self, index: I) -> &mut T;
     fn set(&mut self, index: I, value: T);
     fn push(&mut self, value: T) -> I;
+    fn len(&self) -> usize;
 }
 
 impl<I, T> IndexVec<I, T> for Vec<T>
@@ -56,5 +57,9 @@ where
         let len = self.len();
         self.push(value);
         I::from(len)
+    }
+
+    fn len(&self) -> usize {
+        self.len()
     }
 }

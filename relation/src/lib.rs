@@ -16,6 +16,8 @@ mod indices;
 use crate::index_vec::{IndexVec, VecFamily};
 use crate::indices::Indices;
 pub use crate::indices::{EdgeIndex, NodeIndex};
+use std::collections::HashSet;
+use std::fmt::Write;
 use std::ops::{Index, IndexMut};
 
 pub struct Relation<F: VecFamily> {
@@ -192,6 +194,35 @@ impl<F: VecFamily> Relation<F> {
     pub fn successors(&self, node: NodeIndex) -> impl Iterator<Item = NodeIndex> + '_ {
         self.edges(node, Direction::Outgoing)
             .map(move |edge| self[edge].nodes.outgoing())
+    }
+
+    pub fn nodes(&self) -> impl Iterator<Item = NodeIndex> {
+        (0..self.nodes.len()).map(|i| NodeIndex::from(i))
+    }
+
+    fn dump_and_assert(&self) -> String {
+        let mut string = String::new();
+        let mut edge_indices_observed = HashSet::new();
+
+        for pred in self.nodes() {
+            for edge in self.edges(pred, Direction::Outgoing) {
+                let succ = self[edge].nodes.outgoing();
+                writeln!(&mut string, "{:?} --{:?}--> {:?}", pred, edge, succ).unwrap();
+
+                if edge_indices_observed.insert(edge) {
+                    panic!("observed edge {:?} twice; graph so far:\n{}", edge, string);
+                }
+
+                assert!(
+                    self.edges(succ, Direction::Incoming)
+                        .any(|e| e == edge),
+                    "edge {:?} not found in incoming list of node {:?}, graph = {:?}",
+                    edge, succ, self
+                );
+            }
+        }
+
+        return string;
     }
 }
 
