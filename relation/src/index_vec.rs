@@ -1,8 +1,9 @@
 use crate::indices::{EdgeIndex, NodeIndex};
 use crate::{EdgeData, NodeData};
+use std::fmt::Debug;
 use std::hash::Hash;
 
-pub trait VecFamily {
+pub trait VecFamily: Debug {
     type NodeVec: IndexVec<NodeIndex, NodeData>;
     type EdgeVec: IndexVec<EdgeIndex, EdgeData>;
 }
@@ -11,9 +12,10 @@ pub trait IndexType: Copy + Ord + Eq + Hash + From<usize> {
     fn to_usize(self) -> usize;
 }
 
-pub trait IndexVec<I, T>: Default
+pub trait IndexVec<I, T>: Default + Debug
 where
     I: IndexType,
+    T: Debug,
 {
     fn with_default_elements(num_elts: usize) -> Self
     where
@@ -29,6 +31,7 @@ where
 impl<I, T> IndexVec<I, T> for Vec<T>
 where
     I: IndexType,
+    T: Debug,
 {
     fn with_default_elements(num_elts: usize) -> Self
     where

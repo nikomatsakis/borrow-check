@@ -20,17 +20,19 @@ use std::collections::HashSet;
 use std::fmt::Write;
 use std::ops::{Index, IndexMut};
 
+#[derive(Debug)]
 pub struct Relation<F: VecFamily> {
     nodes: F::NodeVec,
     edges: F::EdgeVec,
     edge_free_list: Option<EdgeIndex>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct NodeData {
     first_edges: Indices<Option<EdgeIndex>>,
 }
 
+#[derive(Debug)]
 pub struct EdgeData {
     nodes: Indices<NodeIndex>,
     next_edges: Indices<Option<EdgeIndex>>,

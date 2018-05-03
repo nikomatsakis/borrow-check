@@ -40,7 +40,7 @@ index_type! {
     pub struct NodeIndex { prefix: "N" }
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 crate struct Indices<N> {
     values: (N, N),
 }
