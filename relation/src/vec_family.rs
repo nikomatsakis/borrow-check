@@ -66,3 +66,12 @@ where
         self.len()
     }
 }
+
+#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub struct StdVec { }
+
+impl VecFamily for StdVec {
+    type NodeVec = Vec<NodeData>;
+    type EdgeVec = Vec<EdgeData>;
+}
+

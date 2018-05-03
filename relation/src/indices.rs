@@ -1,4 +1,4 @@
-use crate::index_vec::IndexType;
+use crate::vec_family::IndexType;
 use crate::Direction;
 use std::num::NonZeroU32;
 use std::ops::{Index, IndexMut};

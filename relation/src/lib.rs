@@ -10,12 +10,11 @@
 #![feature(nonzero)]
 // #![feature(infer_outlives_requirements)]
 
-mod index_vec;
-mod indices;
+pub mod indices;
+pub mod vec_family;
 
-use crate::index_vec::{IndexVec, VecFamily};
-use crate::indices::Indices;
-pub use crate::indices::{EdgeIndex, NodeIndex};
+use crate::vec_family::{IndexVec, VecFamily};
+use crate::indices::{Indices, EdgeIndex, NodeIndex};
 use std::collections::HashSet;
 use std::fmt::Write;
 use std::ops::{Index, IndexMut};
