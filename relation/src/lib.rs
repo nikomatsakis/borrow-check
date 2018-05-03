@@ -1,4 +1,5 @@
 #![feature(catch_expr)]
+#![feature(const_fn)]
 #![feature(crate_in_paths)]
 #![feature(crate_visibility_modifier)]
 #![feature(proc_macro)]
@@ -12,11 +13,10 @@
 
 pub mod indices;
 pub mod vec_family;
+mod test;
 
 use crate::vec_family::{IndexVec, VecFamily};
 use crate::indices::{Indices, EdgeIndex, NodeIndex};
-use std::collections::HashSet;
-use std::fmt::Write;
 use std::ops::{Index, IndexMut};
 
 #[derive(Debug)]
@@ -201,17 +201,20 @@ impl<F: VecFamily> Relation<F> {
         (0..self.nodes.len()).map(|i| NodeIndex::from(i))
     }
 
-    fn dump_and_assert(&self) -> String {
-        let mut string = String::new();
+    #[cfg(test)]
+    fn dump_and_assert(&self) -> Vec<String> {
+        use std::collections::HashSet;
+
+        let mut result = vec![];
         let mut edge_indices_observed = HashSet::new();
 
         for pred in self.nodes() {
             for edge in self.edges(pred, Direction::Outgoing) {
                 let succ = self[edge].nodes.outgoing();
-                writeln!(&mut string, "{:?} --{:?}--> {:?}", pred, edge, succ).unwrap();
+                result.push(format!("{:?} --{:?}--> {:?}", pred, edge, succ));
 
-                if edge_indices_observed.insert(edge) {
-                    panic!("observed edge {:?} twice; graph so far:\n{}", edge, string);
+                if !edge_indices_observed.insert(edge) {
+                    panic!("observed edge {:?} twice; graph so far:\n{:#?}", edge, result);
                 }
 
                 assert!(
@@ -223,7 +226,7 @@ impl<F: VecFamily> Relation<F> {
             }
         }
 
-        return string;
+        result
     }
 }
 
