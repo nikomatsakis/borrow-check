@@ -38,3 +38,45 @@ fn add() {
 
     test(&r, &["N(0) --E(0)--> N(1)", "N(1) --E(1)--> N(2)"]);
 }
+
+#[test]
+fn add_remove_1() {
+    let n0: NodeIndex = NodeIndex::from(0);
+    let n1: NodeIndex = NodeIndex::from(1);
+    let n2: NodeIndex = NodeIndex::from(2);
+    let mut r = StdVecRelation::new(3);
+
+    r.add_edge(n0, n1);
+    r.add_edge(n1, n2);
+    r.remove_edges(n1);
+
+    test(&r, &["N(0) --E(0)--> N(2)", "free edge E(1)"]);
+}
+
+#[test]
+fn add_remove_0() {
+    let n0: NodeIndex = NodeIndex::from(0);
+    let n1: NodeIndex = NodeIndex::from(1);
+    let n2: NodeIndex = NodeIndex::from(2);
+    let mut r = StdVecRelation::new(3);
+
+    r.add_edge(n0, n1);
+    r.add_edge(n1, n2);
+    r.remove_edges(n0);
+
+    test(&r, &["N(1) --E(1)--> N(2)", "free edge E(0)"]);
+}
+
+#[test]
+fn add_remove_2() {
+    let n0: NodeIndex = NodeIndex::from(0);
+    let n1: NodeIndex = NodeIndex::from(1);
+    let n2: NodeIndex = NodeIndex::from(2);
+    let mut r = StdVecRelation::new(3);
+
+    r.add_edge(n0, n1);
+    r.add_edge(n1, n2);
+    r.remove_edges(n2);
+
+    test(&r, &["N(0) --E(0)--> N(1)", "free edge E(1)"]);
+}

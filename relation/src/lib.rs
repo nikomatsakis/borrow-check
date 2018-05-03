@@ -12,11 +12,11 @@
 // #![feature(infer_outlives_requirements)]
 
 pub mod indices;
-pub mod vec_family;
 mod test;
+pub mod vec_family;
 
+use crate::indices::{EdgeIndex, Indices, NodeIndex};
 use crate::vec_family::{IndexVec, VecFamily};
-use crate::indices::{Indices, EdgeIndex, NodeIndex};
 use std::ops::{Index, IndexMut};
 
 #[derive(Debug)]
@@ -214,16 +214,58 @@ impl<F: VecFamily> Relation<F> {
                 result.push(format!("{:?} --{:?}--> {:?}", pred, edge, succ));
 
                 if !edge_indices_observed.insert(edge) {
-                    panic!("observed edge {:?} twice; graph so far:\n{:#?}", edge, result);
+                    panic!(
+                        "observed edge {:?} twice; graph so far:\n{:#?}",
+                        edge, result
+                    );
                 }
 
                 assert!(
-                    self.edges(succ, Direction::Incoming)
-                        .any(|e| e == edge),
-                    "edge {:?} not found in incoming list of node {:?}, graph = {:?}",
-                    edge, succ, self
+                    self.edges(succ, Direction::Incoming).any(|e| e == edge),
+                    "edge {:?} not found in incoming list of node {:?}, graph = {:#?}",
+                    edge,
+                    succ,
+                    self
                 );
             }
+        }
+
+        for succ in self.nodes() {
+            for edge in self.edges(succ, Direction::Incoming) {
+                let pred = self[edge].nodes.incoming();
+
+                if edge_indices_observed.insert(edge) {
+                    panic!(
+                        "edge {:?} found in pred list of {:?} but not in succ lists; graph:\n{:#?}",
+                        edge,
+                        succ,
+                        self
+                    );
+                }
+
+                assert!(
+                    self.edges(pred, Direction::Outgoing).any(|e| e == edge),
+                    "edge {:?} not found in incoming list of node {:?}, graph = {:#?}",
+                    edge,
+                    succ,
+                    self
+                );
+            }
+        }
+
+
+        let mut next_free_edge = self.edge_free_list;
+        while let Some(free_edge) = next_free_edge {
+            result.push(format!("free edge {:?}", free_edge));
+
+            if !edge_indices_observed.insert(free_edge) {
+                panic!(
+                    "observed edge {:?} twice; graph so far:\n{:#?}",
+                    free_edge, result
+                );
+            }
+
+            next_free_edge = self[free_edge].next_edges.outgoing();
         }
 
         result
