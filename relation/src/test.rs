@@ -98,6 +98,24 @@ fn add_cycle() {
               ]);
 }
 
+// FIXME(chrisvittal) removing all edges of a graph panics
+#[test]
+fn remove_all() {
+    let n0: NodeIndex = NodeIndex::from(0);
+    let n1: NodeIndex = NodeIndex::from(1);
+    let n2: NodeIndex = NodeIndex::from(2);
+    let mut r = StdVecRelation::new(3);
+
+    r.add_edge(n0, n1);
+    r.add_edge(n1, n2);
+    r.remove_edges(n1);
+
+    test(&r, &["N(0) --E(0)--> N(2)", "free edge E(1)"]);
+
+    r.remove_edges(n1);
+    test(&r, &["free edge E(0)", "free edge E(1)"]);
+}
+
 #[test]
 fn add_remove_cycle() {
     let n0: NodeIndex = NodeIndex::from(0);
@@ -116,9 +134,10 @@ fn add_remove_cycle() {
               ]);
 }
 
+// FIXME(chrisvittal) removing all edges of a cylce graph panics
+// differently than just removing all edges
 #[test]
-#[ignore]
-fn remove_all() {
+fn remove_all_cycle() {
     let n0: NodeIndex = NodeIndex::from(0);
     let n1: NodeIndex = NodeIndex::from(1);
     let n2: NodeIndex = NodeIndex::from(2);
@@ -231,6 +250,8 @@ fn remove_three_incoming_one_outgoing_2() {
 // 0 --> 2
 // 0 --> 3
 #[test]
+// This test exercieses unimplemented functionality.
+// as such, it is disabled
 #[ignore]
 fn remove_one_incoming_two_outgoing() {
     let n0: NodeIndex = NodeIndex::from(0);
@@ -274,6 +295,56 @@ fn add_remove_complex_1() {
 
     test(&r, &["N(0) --E(0)--> N(2)",
                "N(3) --E(2)--> N(2)",
+               "free edge E(1)",
+              ]);
+}
+
+// FIXME(chrisvittal) removing all edges of a cylce graph panics
+// This one even panics before trying to remove all edges
+#[test]
+fn long_remove_cycle() {
+    let n0: NodeIndex = NodeIndex::from(0);
+    let n1: NodeIndex = NodeIndex::from(1);
+    let n2: NodeIndex = NodeIndex::from(2);
+    let n3: NodeIndex = NodeIndex::from(3);
+    let n4: NodeIndex = NodeIndex::from(4);
+
+    let mut r = StdVecRelation::new(6);
+
+    r.add_edge(n0, n1);
+    r.add_edge(n1, n2);
+    r.add_edge(n2, n3);
+    r.add_edge(n3, n4);
+    r.add_edge(n4, n0);
+
+    test(&r, &["N(0) --E(0)--> N(1)",
+               "N(1) --E(1)--> N(2)",
+               "N(2) --E(2)--> N(3)",
+               "N(3) --E(3)--> N(4)",
+               "N(4) --E(4)--> N(0)",
+              ]);
+
+    r.remove_edges(n1);
+    test(&r, &["N(0) --E(0)--> N(2)",
+               "N(2) --E(2)--> N(3)",
+               "N(3) --E(3)--> N(4)",
+               "N(4) --E(4)--> N(0)",
+               "free edge E(1)",
+              ]);
+
+    r.remove_edges(n3);
+    test(&r, &["N(0) --E(0)--> N(2)",
+               "N(2) --E(2)--> N(4)",
+               "N(4) --E(4)--> N(0)",
+               "free edge E(3)",
+               "free edge E(1)",
+              ]);
+
+    r.remove_edges(n0);
+    test(&r, &["N(2) --E(2)--> N(4)",
+               "N(4) --E(4)--> N(2)",
+               "free edge E(0)",
+               "free edge E(3)",
                "free edge E(1)",
               ]);
 }

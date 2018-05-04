@@ -37,7 +37,6 @@ use std::ops::{Index, IndexMut};
 pub struct Relation<F: VecFamily> {
     nodes: F::NodeVec,
     edges: F::EdgeVec,
-    // NOTE/QUESTION: Why does this field only allow 0 or 1 elements in the free list?
     edge_free_list: Option<EdgeIndex>,
 }
 
