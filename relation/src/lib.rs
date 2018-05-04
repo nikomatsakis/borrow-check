@@ -174,6 +174,7 @@ impl<F: VecFamily> Relation<F> {
         }
         self.edge_free_list = next_free_list_edge;
         self[node].first_edges[direction] = None;
+        self[node].first_edges[inv_direction] = None;
     }
 
     /// Go through the list of edges for `node` (in the given
@@ -284,6 +285,9 @@ impl<F: VecFamily> Relation<F> {
     ///
     /// N(1) Edge Data After:
     /// E(2) -> E(1) -> E(0) -> [head of N(1) subs] -> ...
+    ///
+    //  We also take care to set `node` to `None` as otherwise, the traversal over all nodes
+    //  fails and gives inconsistent results, causing tests to fail.
     fn redirect_incoming_edges(&mut self, node: NodeIndex, successor: NodeIndex) {
         let mut edge_to_redirect = self[node].first_edges.incoming();
         while let Some(redirected_edge_ind) = edge_to_redirect {
@@ -302,6 +306,7 @@ impl<F: VecFamily> Relation<F> {
                 .set_incoming(edge_to_redirect);
             edge_to_redirect = tmp;
         }
+        self[node].first_edges.set_incoming(None);
     }
 
     /// Iterate over all the edge indices coming out of a

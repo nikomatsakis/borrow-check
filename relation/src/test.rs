@@ -98,7 +98,6 @@ fn add_cycle() {
               ]);
 }
 
-// FIXME(chrisvittal) removing all edges of a graph panics
 #[test]
 fn remove_all() {
     let n0: NodeIndex = NodeIndex::from(0);
@@ -111,8 +110,7 @@ fn remove_all() {
     r.remove_edges(n1);
 
     test(&r, &["N(0) --E(0)--> N(2)", "free edge E(1)"]);
-
-    r.remove_edges(n1);
+    r.remove_edges(n2);
     test(&r, &["free edge E(0)", "free edge E(1)"]);
 }
 
@@ -134,8 +132,6 @@ fn add_remove_cycle() {
               ]);
 }
 
-// FIXME(chrisvittal) removing all edges of a cylce graph panics
-// differently than just removing all edges
 #[test]
 fn remove_all_cycle() {
     let n0: NodeIndex = NodeIndex::from(0);
@@ -147,29 +143,17 @@ fn remove_all_cycle() {
     r.add_edge(n1, n2);
     r.add_edge(n2, n0);
     r.remove_edges(n1);
-    r.remove_edges(n0);
 
     test(&r, &["N(0) --E(0)--> N(2)",
                "N(2) --E(2)--> N(0)",
                "free edge E(1)",
               ]);
-}
 
-#[test]
-fn add_remove_cycle_out() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
-    let mut r = StdVecRelation::new(3);
-
-    r.add_edge(n0, n1);
-    r.add_edge(n1, n2);
-    r.add_edge(n2, n0);
-    println!("{:#?}", r);
-    r.remove_edges(n1);
-    println!("{:#?}", r);
     r.remove_edges(n0);
-    println!("{:#?}", r);
+    test(&r, &["N(2) --E(2)--> N(2)",
+               "free edge E(0)",
+               "free edge E(1)",
+              ]);
 }
 
 // This test has a start graph
@@ -299,8 +283,6 @@ fn add_remove_complex_1() {
               ]);
 }
 
-// FIXME(chrisvittal) removing all edges of a cylce graph panics
-// This one even panics before trying to remove all edges
 #[test]
 fn long_remove_cycle() {
     let n0: NodeIndex = NodeIndex::from(0);
