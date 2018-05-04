@@ -232,25 +232,6 @@ impl<F: VecFamily> Relation<F> {
             return self.move_edges_to_free_list(node, Direction::Incoming);
         }
 
-        if incoming_count == 1 && outgoing_count == 1 {
-            // Another easy case. Only one predecessor and one
-            // successor, like this (here, `P` and `S` represent the
-            // edge indices):
-            //
-            // A -P-> B -S-> C
-            //
-            // In this case, to remove B, we can just redirect one of
-            // those edges to go directly from A to C (we choose `P`),
-            // and kill the other:
-            //
-            //     A -P-> C
-            //     B
-            //     Free list: S
-
-            let successor = self.move_only_outgoing_edge_to_free_list(node);
-            return self.redirect_only_incoming_edge(node, successor);
-        }
-
         if outgoing_count == 1 {
             // Before                  After
             //
@@ -293,24 +274,35 @@ impl<F: VecFamily> Relation<F> {
         successor_node
     }
 
-    fn redirect_incoming_edges(&mut self, _node: NodeIndex, _successor: NodeIndex) {
-        unimplemented!()
-    }
-
-    fn redirect_only_incoming_edge(&mut self, node: NodeIndex, successor: NodeIndex) {
-        // unwrap will not panic as there must be an incoming edge for this function to be called
-        let edge_to_redirect = self[node].first_edges.incoming().unwrap();
-        let first_incoming_edge_of_successor = self[successor].first_edges.incoming();
-        {
-            let edge_to_redirect_data = &mut self[edge_to_redirect];
-            edge_to_redirect_data.nodes.set_outgoing(successor);
-            edge_to_redirect_data
-                .next_edges
-                .set_incoming(first_incoming_edge_of_successor);
+    /// We model edges as a linked list, backed by a vector. Here we "push" each
+    /// incoming edge to `node` and push it to the top of the stack of edges in `successor`.
+    /// this has the effect of reversing the order of the edge stack from `node` compared to
+    /// successor. That is, if we had N(0), with incoming edges E(0), E(1), and E(2), and we
+    /// want to connect them to N(1) which may or may not have any other incoming edges.
+    ///
+    /// N(0) Edge Data:
+    /// E(0) -> E(1) -> E(2) -> None
+    ///
+    /// N(1) Edge Data After:
+    /// E(2) -> E(1) -> E(0) -> [head of N(1) subs] -> ...
+    fn redirect_incoming_edges(&mut self, node: NodeIndex, successor: NodeIndex) {
+        let mut edge_to_redirect = self[node].first_edges.incoming();
+        while let Some(redirected_edge_ind) = edge_to_redirect {
+            let tmp;
+            let first_incoming_edge_of_successor = self[successor].first_edges.incoming();
+            {
+                let edge_to_redirect_data = &mut self[redirected_edge_ind];
+                edge_to_redirect_data.nodes.set_outgoing(successor);
+                tmp = edge_to_redirect_data.next_edges.incoming();
+                edge_to_redirect_data
+                    .next_edges
+                    .set_incoming(first_incoming_edge_of_successor);
+            }
+            self[successor]
+                .first_edges
+                .set_incoming(edge_to_redirect);
+            edge_to_redirect = tmp;
         }
-        self[successor]
-            .first_edges
-            .set_incoming(Some(edge_to_redirect));
     }
 
     /// Iterate over all the edge indices coming out of a

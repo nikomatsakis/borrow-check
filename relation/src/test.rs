@@ -163,7 +163,6 @@ fn add_remove_cycle_out() {
 // 0 --> 3
 // 1 --> 3
 #[test]
-#[ignore]
 fn remove_three_incoming_one_outgoing() {
     let n0: NodeIndex = NodeIndex::from(0);
     let n1: NodeIndex = NodeIndex::from(1);
@@ -177,12 +176,47 @@ fn remove_three_incoming_one_outgoing() {
     r.add_edge(n4, n2);
     r.add_edge(n2, n3);
 
-    println!("{:#?}", r);
-
-    //r.remove_edges(n2);
+    r.remove_edges(n2);
     test(&r, &["N(0) --E(0)--> N(3)",
                "N(1) --E(1)--> N(3)",
                "N(4) --E(2)--> N(3)",
+               "free edge E(3)",
+              ]);
+}
+
+// Start
+// 0 --> 2
+// 1 --> 2
+// 2 --> 3
+// 4 --> 2
+// 5 --> 3
+//
+// End graph
+// 0 --> 3
+// 1 --> 3
+// 4 --> 3
+// 5 --> 3
+#[test]
+fn remove_three_incoming_one_outgoing_2() {
+    let n0: NodeIndex = NodeIndex::from(0);
+    let n1: NodeIndex = NodeIndex::from(1);
+    let n2: NodeIndex = NodeIndex::from(2);
+    let n3: NodeIndex = NodeIndex::from(3);
+    let n4: NodeIndex = NodeIndex::from(4);
+    let n5: NodeIndex = NodeIndex::from(5);
+    let mut r = StdVecRelation::new(6);
+
+    r.add_edge(n0, n2);
+    r.add_edge(n1, n2);
+    r.add_edge(n4, n2);
+    r.add_edge(n2, n3);
+    r.add_edge(n5, n3);
+
+    r.remove_edges(n2);
+    test(&r, &["N(0) --E(0)--> N(3)",
+               "N(1) --E(1)--> N(3)",
+               "N(4) --E(2)--> N(3)",
+               "N(5) --E(4)--> N(3)",
                "free edge E(3)",
               ]);
 }
