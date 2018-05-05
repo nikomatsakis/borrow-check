@@ -234,9 +234,6 @@ fn remove_three_incoming_one_outgoing_2() {
 // 0 --> 2
 // 0 --> 3
 #[test]
-// This test exercieses unimplemented functionality.
-// as such, it is disabled
-#[ignore]
 fn remove_one_incoming_two_outgoing() {
     let n0: NodeIndex = NodeIndex::from(0);
     let n1: NodeIndex = NodeIndex::from(1);
@@ -248,9 +245,16 @@ fn remove_one_incoming_two_outgoing() {
     r.add_edge(n1, n2);
     r.add_edge(n1, n3);
 
-    println!("{:#?}", r);
+    test(&r, &["N(0) --E(0)--> N(1)",
+               "N(1) --E(2)--> N(3)",
+               "N(1) --E(1)--> N(2)",
+              ]);
 
     r.remove_edges(n1);
+    test(&r, &["N(0) --E(1)--> N(2)",
+               "N(0) --E(2)--> N(3)",
+               "free edge E(0)",
+              ]);
 }
 
 // Graph From:

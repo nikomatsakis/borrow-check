@@ -246,6 +246,21 @@ impl<F: VecFamily> Relation<F> {
             return self.redirect_incoming_edges(node, successor);
         }
 
+        if incoming_count == 1 {
+            // Before                    After
+            //
+            //
+            //           +--> D            +--> D
+            //           |                 |
+            // A --> B --+             A --+
+            //           |                 |
+            //           +--> C            +--> C
+            //
+            //
+            let predecessor = self.move_only_incoming_edge_to_free_list(node);
+            return self.redirect_outgoing_edges(node, predecessor);
+        }
+
         panic!("not yet implemented");
     }
 
@@ -272,6 +287,31 @@ impl<F: VecFamily> Relation<F> {
         );
         self.edge_free_list = Some(edge_to_remove);
         successor_node
+    }
+
+    /// Given a node that is known to have exactly one predecessor, move
+    /// the incoming edge to the free list, and return the node that
+    /// was its origin.
+    fn move_only_incoming_edge_to_free_list(&mut self, node: NodeIndex) -> NodeIndex {
+        let edge_to_remove = self[node].first_edges.take_incoming().unwrap();
+        let predecessor_node;
+        let predecessor_next;
+        {
+            let edge_free_list = self.edge_free_list;
+            let edge_data = &mut self[edge_to_remove];
+            debug_assert_eq!(edge_data.nodes.outgoing(), node);
+            predecessor_node = edge_data.nodes.incoming();
+            predecessor_next = edge_data.next_edges.outgoing();
+            edge_data.next_edges.set_outgoing(edge_free_list);
+        }
+        self.unlink_edge(
+            predecessor_node,
+            Direction::Outgoing,
+            edge_to_remove,
+            predecessor_next,
+        );
+        self.edge_free_list = Some(edge_to_remove);
+        predecessor_node
     }
 
     /// We model edges as a linked list, backed by a vector. Here we "push" each
@@ -307,6 +347,28 @@ impl<F: VecFamily> Relation<F> {
             edge_to_redirect = tmp;
         }
         self[node].first_edges.set_incoming(None);
+    }
+
+    fn redirect_outgoing_edges(&mut self, node: NodeIndex, predecessor: NodeIndex) {
+        let mut edge_to_redirect = self[node].first_edges.outgoing();
+        while let Some(redirected_edge_ind) = edge_to_redirect {
+            let tmp;
+            let first_outgoing_edge_of_predecessor =
+                self[predecessor].first_edges.outgoing();
+            {
+                let edge_to_redirect_data = &mut self[redirected_edge_ind];
+                edge_to_redirect_data.nodes.set_incoming(predecessor);
+                tmp = edge_to_redirect_data.next_edges.outgoing();
+                edge_to_redirect_data
+                    .next_edges
+                    .set_outgoing(first_outgoing_edge_of_predecessor);
+            }
+            self[predecessor]
+                .first_edges
+                .set_outgoing(edge_to_redirect);
+            edge_to_redirect = tmp;
+        }
+        self[node].first_edges.set_outgoing(None);
     }
 
     /// Iterate over all the edge indices coming out of a

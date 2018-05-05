@@ -81,6 +81,10 @@ impl<N> Indices<Option<N>> {
     crate fn take_outgoing(&mut self) -> Option<N> {
         self.outgoing.take()
     }
+
+    crate fn take_incoming(&mut self) -> Option<N> {
+        self.incoming.take()
+    }
 }
 
 impl<N> Index<Direction> for Indices<N> {
