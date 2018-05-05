@@ -174,7 +174,6 @@ impl<F: VecFamily> Relation<F> {
         }
         self.edge_free_list = next_free_list_edge;
         self[node].first_edges[direction] = None;
-        self[node].first_edges[inv_direction] = None;
     }
 
     /// Go through the list of edges for `node` (in the given
@@ -261,7 +260,9 @@ impl<F: VecFamily> Relation<F> {
             return self.redirect_outgoing_edges(node, predecessor);
         }
 
-        panic!("not yet implemented");
+        // final case: multiple in, multiple out. This case allocates,
+        // which is why it is after all of the others.
+        self.redirect_all_edges(node);
     }
 
     /// Given a node that is known to have exactly one successor, move
@@ -371,6 +372,23 @@ impl<F: VecFamily> Relation<F> {
         self[node].first_edges.set_outgoing(None);
     }
 
+    /// Redirects all edges coming into or out of a node, works by removing all
+    /// edges, then inserting the necessary ones. Allocates twice for the list
+    /// of nodes
+    fn redirect_all_edges(&mut self, node: NodeIndex) {
+        let successors: Vec<_> = self.successors(node).collect();
+        let predecessors: Vec<_> = self.predecessors(node).collect();
+
+        self.move_edges_to_free_list(node, Direction::Outgoing);
+        self.move_edges_to_free_list(node, Direction::Incoming);
+        println!("{:#?}", self);
+        for s in successors {
+            for &p in predecessors.iter() {
+                self.add_edge(p,s);
+            }
+        }
+    }
+
     /// Iterate over all the edge indices coming out of a
     /// node. Careful, because edge indices get invalidated by removal
     /// operations.
@@ -386,6 +404,11 @@ impl<F: VecFamily> Relation<F> {
     pub fn successors(&self, node: NodeIndex) -> impl Iterator<Item = NodeIndex> + '_ {
         self.edges(node, Direction::Outgoing)
             .map(move |edge| self[edge].nodes.outgoing())
+    }
+
+    pub fn predecessors(&self, node: NodeIndex) -> impl Iterator<Item = NodeIndex> + '_ {
+        self.edges(node, Direction::Incoming)
+            .map(move |edge| self[edge].nodes.incoming())
     }
 
     pub fn nodes(&self) -> impl Iterator<Item = NodeIndex> {
