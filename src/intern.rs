@@ -33,6 +33,10 @@ where
         self.rev_strings.push(data.to_string());
         *self.strings.entry(data.to_string()).or_insert(index)
     }
+
+    crate fn len(&self) -> usize {
+        self.rev_strings.len()
+    }
 }
 
 crate struct InternerTables {
@@ -49,10 +53,22 @@ impl InternerTables {
             points: Interner::new(),
         }
     }
+
+    crate fn len<L: InternLen>(&self) -> usize {
+        L::len(self)
+    }
+
+    crate fn each<L: InternLen>(&self) -> impl Iterator<Item = L> {
+        (0..L::len(self)).map(|i| L::from(i))
+    }
 }
 
 crate trait InternTo<To> {
     fn intern(tables: &mut InternerTables, input: Self) -> To;
+}
+
+crate trait InternLen: From<usize> {
+    fn len(tables: &InternerTables) -> usize;
 }
 
 macro_rules! intern_impl {
@@ -60,6 +76,12 @@ macro_rules! intern_impl {
         impl InternTo<$t> for &str {
             fn intern(tables: &mut InternerTables, input: &str) -> $t {
                 tables.$field.intern(input)
+            }
+        }
+
+        impl InternLen for $t {
+            fn len(tables: &InternerTables) -> usize {
+                tables.$field.len()
             }
         }
     };

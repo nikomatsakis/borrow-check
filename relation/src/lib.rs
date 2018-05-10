@@ -39,18 +39,30 @@ pub struct Relation<F: VecFamily> {
     edge_free_list: Option<F::Edge>,
 }
 
-#[derive(Debug)]
+impl<F: VecFamily> Clone for Relation<F> {
+    fn clone(&self) -> Self {
+        Self {
+            nodes: self.nodes.clone(),
+            edges: self.edges.clone(),
+            edge_free_list: self.edge_free_list.clone(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct NodeData<F: VecFamily> {
     first_edges: Indices<Option<F::Edge>>,
 }
 
 impl<F: VecFamily> Default for NodeData<F> {
     fn default() -> Self {
-        NodeData { first_edges: Indices::default() }
+        NodeData {
+            first_edges: Indices::default(),
+        }
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct EdgeData<F: VecFamily> {
     nodes: Indices<F::Node>,
     next_edges: Indices<Option<F::Edge>>,
@@ -111,7 +123,9 @@ impl<F: VecFamily> Relation<F> {
 
     fn add_edge_internal(&mut self, predecessor: F::Node, successor: F::Node) -> bool {
         // Check that edge does not already exist.
-        if self.successors(predecessor).any(|s| s == predecessor) {
+        if self.successors_internal(predecessor)
+            .any(|s| s == predecessor)
+        {
             false
         } else {
             let next_incoming = self.node(successor).first_edges.incoming();
@@ -120,8 +134,12 @@ impl<F: VecFamily> Relation<F> {
                 nodes: Indices::new(predecessor, successor),
                 next_edges: Indices::new(next_incoming, next_outgoing),
             });
-            self.node_mut(successor).first_edges.set_incoming(Some(edge_index));
-            self.node_mut(predecessor).first_edges.set_outgoing(Some(edge_index));
+            self.node_mut(successor)
+                .first_edges
+                .set_incoming(Some(edge_index));
+            self.node_mut(predecessor)
+                .first_edges
+                .set_outgoing(Some(edge_index));
             true
         }
     }
@@ -366,8 +384,7 @@ impl<F: VecFamily> Relation<F> {
         let mut edge_to_redirect = self.node(node).first_edges.outgoing();
         while let Some(redirected_edge_ind) = edge_to_redirect {
             let tmp;
-            let first_outgoing_edge_of_predecessor =
-                self.node(predecessor).first_edges.outgoing();
+            let first_outgoing_edge_of_predecessor = self.node(predecessor).first_edges.outgoing();
             {
                 let edge_to_redirect_data = self.edge_mut(redirected_edge_ind);
                 edge_to_redirect_data.nodes.set_incoming(predecessor);
@@ -388,8 +405,8 @@ impl<F: VecFamily> Relation<F> {
     /// edges, then inserting the necessary ones. Allocates twice for the list
     /// of nodes
     fn redirect_all_edges(&mut self, node: F::Node) {
-        let successors: Vec<_> = self.successors(node).collect();
-        let predecessors: Vec<_> = self.predecessors(node).collect();
+        let successors: Vec<_> = self.successors_internal(node).collect();
+        let predecessors: Vec<_> = self.predecessors_internal(node).collect();
 
         self.move_edges_to_free_list(node, Direction::Outgoing);
         self.move_edges_to_free_list(node, Direction::Incoming);
@@ -413,12 +430,23 @@ impl<F: VecFamily> Relation<F> {
         }
     }
 
-    pub fn successors(&self, node: F::Node) -> impl Iterator<Item = F::Node> + '_ {
+    pub fn successors(&self, node: F::UserNode) -> impl Iterator<Item = F::UserNode> + '_ {
+        let node = F::into_node(node);
+        self.successors_internal(node)
+            .map(|n| F::from_node(n))
+    }
+
+    fn successors_internal(&self, node: F::Node) -> impl Iterator<Item = F::Node> + '_ {
         self.edges(node, Direction::Outgoing)
             .map(move |edge| self.edge(edge).nodes.outgoing())
     }
 
-    pub fn predecessors(&self, node: F::Node) -> impl Iterator<Item = F::Node> + '_ {
+    pub fn predecessors(&self, node: F::UserNode) -> impl Iterator<Item = F::Node> + '_ {
+        let node = F::into_node(node);
+        self.predecessors_internal(node)
+    }
+
+    fn predecessors_internal(&self, node: F::Node) -> impl Iterator<Item = F::Node> + '_ {
         self.edges(node, Direction::Incoming)
             .map(move |edge| self.edge(edge).nodes.incoming())
     }

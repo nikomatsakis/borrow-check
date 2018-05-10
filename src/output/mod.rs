@@ -17,10 +17,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Write};
 use std::path::PathBuf;
 
+mod bespoke;
 mod dump;
-mod tracking;
 mod timely;
-
+mod tracking;
 
 #[derive(Clone, Debug)]
 crate struct Output {
@@ -29,36 +29,54 @@ crate struct Output {
     dump_enabled: bool,
 
     // these are just for debugging
-    restricts: FxHashMap<Point, BTreeMap<Region, BTreeSet<Loan>>>,
-    region_live_at: FxHashMap<Point, Vec<Region>>,
-    subset: FxHashMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
+    restricts: BTreeMap<Point, BTreeMap<Region, BTreeSet<Loan>>>,
+    region_live_at: BTreeMap<Point, Vec<Region>>,
+    subset: BTreeMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
     crate region_degrees: tracking::RegionDegrees,
 }
 
 impl Output {
-    crate fn compute(all_facts: AllFacts, algorithm: Algorithm, dump_enabled: bool) -> Self {
+    crate fn compute(
+        tables: &InternerTables,
+        all_facts: AllFacts,
+        algorithm: Algorithm,
+        dump_enabled: bool,
+    ) -> Self {
         match algorithm {
             Algorithm::Naive => timely::timely_dataflow(dump_enabled, all_facts),
+            Algorithm::BespokeEdge => bespoke::edge(tables, dump_enabled, all_facts),
         }
     }
 
     fn new(dump_enabled: bool) -> Self {
         Output {
             borrow_live_at: FxHashMap::default(),
-            restricts: FxHashMap::default(),
-            region_live_at: FxHashMap::default(),
-            subset: FxHashMap::default(),
+            restricts: BTreeMap::default(),
+            region_live_at: BTreeMap::default(),
+            subset: BTreeMap::default(),
             region_degrees: tracking::RegionDegrees::new(),
             dump_enabled,
         }
     }
 
     crate fn dump(&self, output_dir: &Option<PathBuf>, intern: &InternerTables) -> io::Result<()> {
-        dump::dump_rows(&mut writer_for(output_dir, "borrow_live_at")?, intern, &self.borrow_live_at)?;
+        dump::dump_rows(
+            &mut writer_for(output_dir, "borrow_live_at")?,
+            intern,
+            &self.borrow_live_at,
+        )?;
 
         if self.dump_enabled {
-            dump::dump_rows(&mut writer_for(output_dir, "restricts")?, intern, &self.restricts)?;
-            dump::dump_rows(&mut writer_for(output_dir, "region_live_at")?, intern, &self.region_live_at)?;
+            dump::dump_rows(
+                &mut writer_for(output_dir, "restricts")?,
+                intern,
+                &self.restricts,
+            )?;
+            dump::dump_rows(
+                &mut writer_for(output_dir, "region_live_at")?,
+                intern,
+                &self.region_live_at,
+            )?;
             dump::dump_rows(&mut writer_for(output_dir, "subset")?, intern, &self.subset)?;
         }
         return Ok(());
@@ -74,7 +92,7 @@ impl Output {
                     let mut of = dir.join(name);
                     of.set_extension("facts");
                     Box::new(fs::File::create(of)?)
-                },
+                }
                 None => {
                     let mut stdout = io::stdout();
                     write!(&mut stdout, "# {}\n\n", name)?;
@@ -105,6 +123,11 @@ impl Output {
             Some(v) => v,
             None => &[],
         }
+    }
+
+    crate fn subset(&self) -> &BTreeMap<Point, BTreeMap<Region, BTreeSet<Region>>> {
+        assert!(self.dump_enabled);
+        &self.subset
     }
 
     crate fn subsets_at(&self, location: Point) -> Cow<'_, BTreeMap<Region, BTreeSet<Region>>> {

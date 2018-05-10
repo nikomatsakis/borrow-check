@@ -4,7 +4,7 @@ use std; // FIXME
 use std::fmt::Debug;
 use std::hash::Hash;
 
-pub trait VecFamily: Debug + Default + Sized {
+pub trait VecFamily: Clone + Debug + Default + Sized {
     type UserNode: Debug;
     type Node: IndexType;
     type Edge: IndexType;
@@ -12,13 +12,14 @@ pub trait VecFamily: Debug + Default + Sized {
     type EdgeVec: IndexVec<Self::Edge, EdgeData<Self>>;
 
     fn into_node(Self::UserNode) -> Self::Node;
+    fn from_node(Self::Node) -> Self::UserNode;
 }
 
 pub trait IndexType: Copy + Debug + Ord + Eq + Hash + From<usize> {
     fn to_usize(self) -> usize;
 }
 
-pub trait IndexVec<I, T>: Default + Debug
+pub trait IndexVec<I, T>: Clone + Default + Debug
 where
     I: IndexType,
     T: Debug,
@@ -37,7 +38,7 @@ where
 impl<I, T> IndexVec<I, T> for Vec<T>
 where
     I: IndexType,
-    T: Debug,
+    T: Clone + Debug,
 {
     fn with_default_elements(num_elts: usize) -> Self
     where
@@ -77,6 +78,12 @@ pub struct StdVec<U> {
     data: std::marker::PhantomData<U>
 }
 
+impl<U> Clone for StdVec<U> {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
 impl<U> Default for StdVec<U> {
     fn default() -> Self {
         Self { data: std::marker::PhantomData }
@@ -89,7 +96,7 @@ impl<U> Debug for StdVec<U> {
     }
 }
 
-impl<U: Into<usize> + Debug> VecFamily for StdVec<U> {
+impl<U: From<usize> + Into<usize> + Debug> VecFamily for StdVec<U> {
     type UserNode = U;
     type Node = NodeIndex;
     type Edge = EdgeIndex;
@@ -99,6 +106,10 @@ impl<U: Into<usize> + Debug> VecFamily for StdVec<U> {
     fn into_node(u: U) -> NodeIndex {
         let u: usize = u.into();
         NodeIndex::from(u)
+    }
+
+    fn from_node(u: NodeIndex) -> U {
+        U::from(u.to_usize())
     }
 }
 

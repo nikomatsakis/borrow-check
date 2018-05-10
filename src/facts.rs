@@ -1,7 +1,7 @@
 use abomonation_derive::Abomonation;
 
 /// The "facts" which are the basis of the NLL borrow analysis.
-#[derive(Default)]
+#[derive(Clone, Default)]
 crate struct AllFacts {
     /// `borrow_region(R, B, P)` -- the region R may refer to data
     /// from borrow B starting at the point P (this is usually the
@@ -44,7 +44,7 @@ macro_rules! index_type {
         }
 
         impl $t {
-            fn index(self) -> usize {
+            crate fn index(self) -> usize {
                 self.into()
             }
         }
