@@ -103,7 +103,13 @@ impl<F: VecFamily> Relation<F> {
     /// Adds an edge from `predecessor` to `successor`
     ///
     /// Returns true if the edge was added, and false if it already exists
-    pub fn add_edge(&mut self, predecessor: F::Node, successor: F::Node) -> bool {
+    pub fn add_edge(&mut self, predecessor: F::UserNode, successor: F::UserNode) -> bool {
+        let predecessor = F::into_node(predecessor);
+        let successor = F::into_node(successor);
+        self.add_edge_internal(predecessor, successor)
+    }
+
+    fn add_edge_internal(&mut self, predecessor: F::Node, successor: F::Node) -> bool {
         // Check that edge does not already exist.
         if self.successors(predecessor).any(|s| s == predecessor) {
             false
@@ -220,7 +226,8 @@ impl<F: VecFamily> Relation<F> {
 
     /// Remove all edges from `node`, preserving transitive
     /// relationships between other nodes.
-    pub fn remove_edges(&mut self, node: F::Node) {
+    pub fn remove_edges(&mut self, node: F::UserNode) {
+        let node = F::into_node(node);
         let incoming_count = self.count_edges_saturating(node, Direction::Incoming);
         if incoming_count == 0 {
             // Easy case: node with only outgoing edges (or no edges
@@ -389,7 +396,7 @@ impl<F: VecFamily> Relation<F> {
         println!("{:#?}", self);
         for s in successors {
             for &p in predecessors.iter() {
-                self.add_edge(p,s);
+                self.add_edge_internal(p, s);
             }
         }
     }

@@ -1,13 +1,17 @@
 use crate::indices::{EdgeIndex, NodeIndex};
 use crate::{EdgeData, NodeData};
+use std; // FIXME
 use std::fmt::Debug;
 use std::hash::Hash;
 
 pub trait VecFamily: Debug + Default + Sized {
+    type UserNode: Debug;
     type Node: IndexType;
     type Edge: IndexType;
     type NodeVec: IndexVec<Self::Node, NodeData<Self>>;
     type EdgeVec: IndexVec<Self::Edge, EdgeData<Self>>;
+
+    fn into_node(Self::UserNode) -> Self::Node;
 }
 
 pub trait IndexType: Copy + Debug + Ord + Eq + Hash + From<usize> {
@@ -69,13 +73,32 @@ where
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub struct StdVec { }
+pub struct StdVec<U> {
+    data: std::marker::PhantomData<U>
+}
 
-impl VecFamily for StdVec {
+impl<U> Default for StdVec<U> {
+    fn default() -> Self {
+        Self { data: std::marker::PhantomData }
+    }
+}
+
+impl<U> Debug for StdVec<U> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "StdVec")
+    }
+}
+
+impl<U: Into<usize> + Debug> VecFamily for StdVec<U> {
+    type UserNode = U;
     type Node = NodeIndex;
     type Edge = EdgeIndex;
     type NodeVec = Vec<NodeData<Self>>;
     type EdgeVec = Vec<EdgeData<Self>>;
+
+    fn into_node(u: U) -> NodeIndex {
+        let u: usize = u.into();
+        NodeIndex::from(u)
+    }
 }
 
