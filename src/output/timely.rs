@@ -15,6 +15,7 @@ use crate::output::Output;
 use differential_dataflow::collection::Collection;
 use differential_dataflow::operators::*;
 use std::collections::{BTreeMap, BTreeSet};
+use std::time::Instant;
 use std::mem;
 use std::sync::mpsc;
 use std::sync::Arc;
@@ -31,6 +32,7 @@ pub(super) fn timely_dataflow(dump_enabled: bool, all_facts: AllFacts) -> Output
     mem::drop(tx);
     let rx = Mutex::new(rx);
 
+    let start = Instant::now();
     timely::execute_from_args(vec![].into_iter(), {
         let result = result.clone();
         move |worker| {
@@ -255,10 +257,15 @@ pub(super) fn timely_dataflow(dump_enabled: bool, all_facts: AllFacts) -> Output
             });
         }
     }).unwrap();
+    let duration = start.elapsed();
 
     // Remove from the Arc and Mutex, since it is fully populated now.
-    Arc::try_unwrap(result)
+    let mut output = Arc::try_unwrap(result)
         .unwrap_or_else(|_| panic!("somebody still has a handle to this arc"))
         .into_inner()
-        .unwrap()
+        .unwrap();
+
+    output.duration = duration;
+
+    output
 }

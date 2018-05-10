@@ -176,10 +176,6 @@ impl<F: VecFamily> Relation<F> {
     /// free list: E0, E1
     /// ```
     fn move_edges_to_free_list(&mut self, node: F::Node, direction: Direction) {
-        println!(
-            "move_edges_to_free_list(node={:?}, direction={:?})",
-            node, direction
-        );
         let mut next_edge_to_remove = self.node(node).first_edges[direction];
         let inv_direction = direction.invert();
 
@@ -216,11 +212,6 @@ impl<F: VecFamily> Relation<F> {
         edge: F::Edge,
         next_edge: Option<F::Edge>,
     ) {
-        println!(
-            "unlink_edge(node={:?}, direction={:?}, edge={:?}, next_edge={:?})",
-            node, direction, edge, next_edge
-        );
-
         let mut cur_edge;
 
         {
@@ -410,7 +401,6 @@ impl<F: VecFamily> Relation<F> {
 
         self.move_edges_to_free_list(node, Direction::Outgoing);
         self.move_edges_to_free_list(node, Direction::Incoming);
-        println!("{:#?}", self);
         for s in successors {
             for &p in predecessors.iter() {
                 self.add_edge_internal(p, s);

@@ -13,6 +13,7 @@ use crate::intern::InternerTables;
 use crate::output::Output;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
+use std::time::Instant;
 
 mod cfg;
 use self::cfg::ControlFlowGraph;
@@ -63,10 +64,13 @@ fn do_computation<SR: SubsetRelation>(
 ) -> Output {
     let cfg = &ControlFlowGraph::new(tables, all_facts);
 
+    let start = Instant::now();
     let subset =
         compute_subset::<EdgeSubsetRelation>(tables, live_regions, cfg, dump_enabled, &all_facts);
+    let duration = start.elapsed();
 
     let mut output = Output::new(dump_enabled);
+    output.duration = duration;
 
     for point in tables.each::<Point>() {
         for region in tables.each::<Region>() {

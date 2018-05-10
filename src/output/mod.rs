@@ -16,6 +16,7 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Write};
 use std::path::PathBuf;
+use std::time::Duration;
 
 mod bespoke;
 mod dump;
@@ -25,6 +26,7 @@ mod tracking;
 #[derive(Clone, Debug)]
 crate struct Output {
     borrow_live_at: FxHashMap<Point, Vec<Loan>>,
+    duration: Duration,
 
     dump_enabled: bool,
 
@@ -50,6 +52,7 @@ impl Output {
 
     fn new(dump_enabled: bool) -> Self {
         Output {
+            duration: Duration::default(),
             borrow_live_at: FxHashMap::default(),
             restricts: BTreeMap::default(),
             region_live_at: BTreeMap::default(),
@@ -57,6 +60,11 @@ impl Output {
             region_degrees: tracking::RegionDegrees::new(),
             dump_enabled,
         }
+    }
+
+    /// Returns the total time elapsed to compute the output.
+    crate fn duration(&self) -> Duration {
+        self.duration
     }
 
     crate fn dump(&self, output_dir: &Option<PathBuf>, intern: &InternerTables) -> io::Result<()> {
