@@ -1,10 +1,9 @@
 #![cfg(test)]
 
-use crate::indices::NodeIndex;
 use crate::vec_family::{StdVec, VecFamily};
 use crate::Relation;
 
-type StdVecRelation = Relation<StdVec>;
+type StdVecRelation = Relation<StdVec<usize>>;
 
 fn test(relation: &Relation<impl VecFamily>, expected_lines: &[&str]) {
     let actual_lines = relation.dump_and_assert();
@@ -28,69 +27,54 @@ fn test(relation: &Relation<impl VecFamily>, expected_lines: &[&str]) {
 
 #[test]
 fn add() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
     let mut r = StdVecRelation::new(3);
 
-    r.add_edge(n0, n1);
-    r.add_edge(n1, n2);
+    r.add_edge(0, 1);
+    r.add_edge(1, 2);
 
     test(&r, &["N(0) --E(0)--> N(1)", "N(1) --E(1)--> N(2)"]);
 }
 
 #[test]
 fn add_remove_1() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
     let mut r = StdVecRelation::new(3);
 
-    r.add_edge(n0, n1);
-    r.add_edge(n1, n2);
-    r.remove_edges(n1);
+    r.add_edge(0, 1);
+    r.add_edge(1, 2);
+    r.remove_edges(1);
 
     test(&r, &["N(0) --E(0)--> N(2)", "free edge E(1)"]);
 }
 
 #[test]
 fn add_remove_0() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
     let mut r = StdVecRelation::new(3);
 
-    r.add_edge(n0, n1);
-    r.add_edge(n1, n2);
-    r.remove_edges(n0);
+    r.add_edge(0, 1);
+    r.add_edge(1, 2);
+    r.remove_edges(0);
 
     test(&r, &["N(1) --E(1)--> N(2)", "free edge E(0)"]);
 }
 
 #[test]
 fn add_remove_2() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
     let mut r = StdVecRelation::new(3);
 
-    r.add_edge(n0, n1);
-    r.add_edge(n1, n2);
-    r.remove_edges(n2);
+    r.add_edge(0, 1);
+    r.add_edge(1, 2);
+    r.remove_edges(2);
 
     test(&r, &["N(0) --E(0)--> N(1)", "free edge E(1)"]);
 }
 
 #[test]
 fn add_cycle() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
     let mut r = StdVecRelation::new(3);
 
-    r.add_edge(n0, n1);
-    r.add_edge(n1, n2);
-    r.add_edge(n2, n0);
+    r.add_edge(0, 1);
+    r.add_edge(1, 2);
+    r.add_edge(2, 0);
 
     test(&r, &["N(0) --E(0)--> N(1)",
                "N(1) --E(1)--> N(2)",
@@ -100,31 +84,25 @@ fn add_cycle() {
 
 #[test]
 fn remove_all() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
     let mut r = StdVecRelation::new(3);
 
-    r.add_edge(n0, n1);
-    r.add_edge(n1, n2);
-    r.remove_edges(n1);
+    r.add_edge(0, 1);
+    r.add_edge(1, 2);
+    r.remove_edges(1);
 
     test(&r, &["N(0) --E(0)--> N(2)", "free edge E(1)"]);
-    r.remove_edges(n2);
+    r.remove_edges(2);
     test(&r, &["free edge E(0)", "free edge E(1)"]);
 }
 
 #[test]
 fn add_remove_cycle() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
     let mut r = StdVecRelation::new(3);
 
-    r.add_edge(n0, n1);
-    r.add_edge(n1, n2);
-    r.add_edge(n2, n0);
-    r.remove_edges(n1);
+    r.add_edge(0, 1);
+    r.add_edge(1, 2);
+    r.add_edge(2, 0);
+    r.remove_edges(1);
 
     test(&r, &["N(0) --E(0)--> N(2)",
                "N(2) --E(2)--> N(0)",
@@ -134,22 +112,19 @@ fn add_remove_cycle() {
 
 #[test]
 fn remove_all_cycle() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
     let mut r = StdVecRelation::new(3);
 
-    r.add_edge(n0, n1);
-    r.add_edge(n1, n2);
-    r.add_edge(n2, n0);
-    r.remove_edges(n1);
+    r.add_edge(0, 1);
+    r.add_edge(1, 2);
+    r.add_edge(2, 0);
+    r.remove_edges(1);
 
     test(&r, &["N(0) --E(0)--> N(2)",
                "N(2) --E(2)--> N(0)",
                "free edge E(1)",
               ]);
 
-    r.remove_edges(n0);
+    r.remove_edges(0);
     test(&r, &["N(2) --E(2)--> N(2)",
                "free edge E(0)",
                "free edge E(1)",
@@ -167,19 +142,14 @@ fn remove_all_cycle() {
 // 1 --> 3
 #[test]
 fn remove_three_incoming_one_outgoing() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
-    let n3: NodeIndex = NodeIndex::from(3);
-    let n4: NodeIndex = NodeIndex::from(4);
     let mut r = StdVecRelation::new(5);
 
-    r.add_edge(n0, n2);
-    r.add_edge(n1, n2);
-    r.add_edge(n4, n2);
-    r.add_edge(n2, n3);
+    r.add_edge(0, 2);
+    r.add_edge(1, 2);
+    r.add_edge(4, 2);
+    r.add_edge(2, 3);
 
-    r.remove_edges(n2);
+    r.remove_edges(2);
     test(&r, &["N(0) --E(0)--> N(3)",
                "N(1) --E(1)--> N(3)",
                "N(4) --E(2)--> N(3)",
@@ -201,21 +171,15 @@ fn remove_three_incoming_one_outgoing() {
 // 5 --> 3
 #[test]
 fn remove_three_incoming_one_outgoing_2() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
-    let n3: NodeIndex = NodeIndex::from(3);
-    let n4: NodeIndex = NodeIndex::from(4);
-    let n5: NodeIndex = NodeIndex::from(5);
     let mut r = StdVecRelation::new(6);
 
-    r.add_edge(n0, n2);
-    r.add_edge(n1, n2);
-    r.add_edge(n4, n2);
-    r.add_edge(n2, n3);
-    r.add_edge(n5, n3);
+    r.add_edge(0, 2);
+    r.add_edge(1, 2);
+    r.add_edge(4, 2);
+    r.add_edge(2, 3);
+    r.add_edge(5, 3);
 
-    r.remove_edges(n2);
+    r.remove_edges(2);
     test(&r, &["N(0) --E(0)--> N(3)",
                "N(1) --E(1)--> N(3)",
                "N(4) --E(2)--> N(3)",
@@ -235,22 +199,18 @@ fn remove_three_incoming_one_outgoing_2() {
 // 0 --> 3
 #[test]
 fn remove_one_incoming_two_outgoing() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
-    let n3: NodeIndex = NodeIndex::from(3);
     let mut r = StdVecRelation::new(4);
 
-    r.add_edge(n0, n1);
-    r.add_edge(n1, n2);
-    r.add_edge(n1, n3);
+    r.add_edge(0, 1);
+    r.add_edge(1, 2);
+    r.add_edge(1, 3);
 
     test(&r, &["N(0) --E(0)--> N(1)",
                "N(1) --E(2)--> N(3)",
                "N(1) --E(1)--> N(2)",
               ]);
 
-    r.remove_edges(n1);
+    r.remove_edges(1);
     test(&r, &["N(0) --E(1)--> N(2)",
                "N(0) --E(2)--> N(3)",
                "free edge E(0)",
@@ -268,18 +228,13 @@ fn remove_one_incoming_two_outgoing() {
 //
 #[test]
 fn add_remove_complex_1() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
-    let n3: NodeIndex = NodeIndex::from(3);
-
     let mut r = StdVecRelation::new(4);
 
-    r.add_edge(n0, n1);
-    r.add_edge(n1, n2);
-    r.add_edge(n3, n2);
+    r.add_edge(0, 1);
+    r.add_edge(1, 2);
+    r.add_edge(3, 2);
 
-    r.remove_edges(n1);
+    r.remove_edges(1);
 
     test(&r, &["N(0) --E(0)--> N(2)",
                "N(3) --E(2)--> N(2)",
@@ -289,19 +244,13 @@ fn add_remove_complex_1() {
 
 #[test]
 fn long_remove_cycle() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
-    let n3: NodeIndex = NodeIndex::from(3);
-    let n4: NodeIndex = NodeIndex::from(4);
-
     let mut r = StdVecRelation::new(6);
 
-    r.add_edge(n0, n1);
-    r.add_edge(n1, n2);
-    r.add_edge(n2, n3);
-    r.add_edge(n3, n4);
-    r.add_edge(n4, n0);
+    r.add_edge(0, 1);
+    r.add_edge(1, 2);
+    r.add_edge(2, 3);
+    r.add_edge(3, 4);
+    r.add_edge(4, 0);
 
     test(&r, &["N(0) --E(0)--> N(1)",
                "N(1) --E(1)--> N(2)",
@@ -310,7 +259,7 @@ fn long_remove_cycle() {
                "N(4) --E(4)--> N(0)",
               ]);
 
-    r.remove_edges(n1);
+    r.remove_edges(1);
     test(&r, &["N(0) --E(0)--> N(2)",
                "N(2) --E(2)--> N(3)",
                "N(3) --E(3)--> N(4)",
@@ -318,7 +267,7 @@ fn long_remove_cycle() {
                "free edge E(1)",
               ]);
 
-    r.remove_edges(n3);
+    r.remove_edges(3);
     test(&r, &["N(0) --E(0)--> N(2)",
                "N(2) --E(2)--> N(4)",
                "N(4) --E(4)--> N(0)",
@@ -326,7 +275,7 @@ fn long_remove_cycle() {
                "free edge E(1)",
               ]);
 
-    r.remove_edges(n0);
+    r.remove_edges(0);
     test(&r, &["N(2) --E(2)--> N(4)",
                "N(4) --E(4)--> N(2)",
                "free edge E(0)",
@@ -337,25 +286,19 @@ fn long_remove_cycle() {
 
 #[test]
 fn multi_in_multi_out() {
-    let n0: NodeIndex = NodeIndex::from(0);
-    let n1: NodeIndex = NodeIndex::from(1);
-    let n2: NodeIndex = NodeIndex::from(2);
-    let n3: NodeIndex = NodeIndex::from(3);
-    let n4: NodeIndex = NodeIndex::from(4);
-
     let mut r = StdVecRelation::new(5);
 
-    r.add_edge(n0, n2);
-    r.add_edge(n1, n2);
-    r.add_edge(n2, n3);
-    r.add_edge(n2, n4);
+    r.add_edge(0, 2);
+    r.add_edge(1, 2);
+    r.add_edge(2, 3);
+    r.add_edge(2, 4);
     test(&r, &["N(0) --E(0)--> N(2)",
                "N(1) --E(1)--> N(2)",
                "N(2) --E(3)--> N(4)",
                "N(2) --E(2)--> N(3)",
               ]);
 
-    r.remove_edges(n2);
+    r.remove_edges(2);
     test(&r, &["N(0) --E(3)--> N(3)",
                "N(0) --E(1)--> N(4)",
                "N(1) --E(2)--> N(3)",

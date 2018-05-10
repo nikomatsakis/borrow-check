@@ -436,7 +436,7 @@ impl<F: VecFamily> Relation<F> {
 
         for pred in self.nodes() {
             for edge in self.edges(pred, Direction::Outgoing) {
-                let succ = self[edge].nodes.outgoing();
+                let succ = self.edge(edge).nodes.outgoing();
                 result.push(format!("{:?} --{:?}--> {:?}", pred, edge, succ));
 
                 if !edge_indices_observed.insert(edge) {
@@ -458,7 +458,7 @@ impl<F: VecFamily> Relation<F> {
 
         for succ in self.nodes() {
             for edge in self.edges(succ, Direction::Incoming) {
-                let pred = self[edge].nodes.incoming();
+                let pred = self.edge(edge).nodes.incoming();
 
                 if edge_indices_observed.insert(edge) {
                     panic!(
@@ -488,7 +488,7 @@ impl<F: VecFamily> Relation<F> {
                 );
             }
 
-            next_free_edge = self[free_edge].next_edges.outgoing();
+            next_free_edge = self.edge(free_edge).next_edges.outgoing();
         }
 
         result
