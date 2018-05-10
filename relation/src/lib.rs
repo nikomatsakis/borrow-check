@@ -15,9 +15,8 @@ pub mod indices;
 mod test;
 pub mod vec_family;
 
-use crate::indices::{EdgeIndex, Indices, NodeIndex};
+use crate::indices::Indices;
 use crate::vec_family::{IndexVec, VecFamily};
-use std::ops::{Index, IndexMut};
 
 /// A graph data struture that preserve transitive reachability relationships.
 ///
@@ -37,18 +36,24 @@ use std::ops::{Index, IndexMut};
 pub struct Relation<F: VecFamily> {
     nodes: F::NodeVec,
     edges: F::EdgeVec,
-    edge_free_list: Option<EdgeIndex>,
-}
-
-#[derive(Default, Debug)]
-pub struct NodeData {
-    first_edges: Indices<Option<EdgeIndex>>,
+    edge_free_list: Option<F::Edge>,
 }
 
 #[derive(Debug)]
-pub struct EdgeData {
-    nodes: Indices<NodeIndex>,
-    next_edges: Indices<Option<EdgeIndex>>,
+pub struct NodeData<F: VecFamily> {
+    first_edges: Indices<Option<F::Edge>>,
+}
+
+impl<F: VecFamily> Default for NodeData<F> {
+    fn default() -> Self {
+        NodeData { first_edges: Indices::default() }
+    }
+}
+
+#[derive(Debug)]
+pub struct EdgeData<F: VecFamily> {
+    nodes: Indices<F::Node>,
+    next_edges: Indices<Option<F::Edge>>,
 }
 
 /// Represents a direction of an edge
@@ -80,11 +85,11 @@ impl<F: VecFamily> Relation<F> {
         }
     }
 
-    fn alloc_edge(&mut self, edge_data: EdgeData) -> EdgeIndex {
+    fn alloc_edge(&mut self, edge_data: EdgeData<F>) -> F::Edge {
         if let Some(free_edge) = self.edge_free_list {
             let next_free_edge;
             {
-                let free_edge_data = &mut self[free_edge];
+                let free_edge_data = self.edge_mut(free_edge);
                 next_free_edge = free_edge_data.next_edges.outgoing();
                 *free_edge_data = edge_data;
             }
@@ -98,24 +103,24 @@ impl<F: VecFamily> Relation<F> {
     /// Adds an edge from `predecessor` to `successor`
     ///
     /// Returns true if the edge was added, and false if it already exists
-    pub fn add_edge(&mut self, predecessor: NodeIndex, successor: NodeIndex) -> bool {
+    pub fn add_edge(&mut self, predecessor: F::Node, successor: F::Node) -> bool {
         // Check that edge does not already exist.
         if self.successors(predecessor).any(|s| s == predecessor) {
             false
         } else {
-            let next_incoming = self[successor].first_edges.incoming();
-            let next_outgoing = self[predecessor].first_edges.outgoing();
+            let next_incoming = self.node(successor).first_edges.incoming();
+            let next_outgoing = self.node(predecessor).first_edges.outgoing();
             let edge_index = self.alloc_edge(EdgeData {
                 nodes: Indices::new(predecessor, successor),
                 next_edges: Indices::new(next_incoming, next_outgoing),
             });
-            self[successor].first_edges.set_incoming(Some(edge_index));
-            self[predecessor].first_edges.set_outgoing(Some(edge_index));
+            self.node_mut(successor).first_edges.set_incoming(Some(edge_index));
+            self.node_mut(predecessor).first_edges.set_outgoing(Some(edge_index));
             true
         }
     }
 
-    fn count_edges_saturating(&mut self, node: NodeIndex, direction: Direction) -> usize {
+    fn count_edges_saturating(&mut self, node: F::Node, direction: Direction) -> usize {
         let mut edges = self.edges(node, direction);
         if let Some(_) = edges.next() {
             if let Some(_) = edges.next() {
@@ -146,12 +151,12 @@ impl<F: VecFamily> Relation<F> {
     /// B -E2-> C
     /// free list: E0, E1
     /// ```
-    fn move_edges_to_free_list(&mut self, node: NodeIndex, direction: Direction) {
+    fn move_edges_to_free_list(&mut self, node: F::Node, direction: Direction) {
         println!(
             "move_edges_to_free_list(node={:?}, direction={:?})",
             node, direction
         );
-        let mut next_edge_to_remove = self[node].first_edges[direction];
+        let mut next_edge_to_remove = self.node(node).first_edges[direction];
         let inv_direction = direction.invert();
 
         // The new head of the free list.
@@ -161,7 +166,7 @@ impl<F: VecFamily> Relation<F> {
             let other_next_edge;
 
             {
-                let edge_data = &mut self[edge_to_remove];
+                let edge_data = self.edge_mut(edge_to_remove);
                 debug_assert_eq!(edge_data.nodes[inv_direction], node);
                 next_edge_to_remove = edge_data.next_edges[direction];
                 other_node = edge_data.nodes[direction];
@@ -173,7 +178,7 @@ impl<F: VecFamily> Relation<F> {
             next_free_list_edge = Some(edge_to_remove);
         }
         self.edge_free_list = next_free_list_edge;
-        self[node].first_edges[direction] = None;
+        self.node_mut(node).first_edges[direction] = None;
     }
 
     /// Go through the list of edges for `node` (in the given
@@ -182,10 +187,10 @@ impl<F: VecFamily> Relation<F> {
     /// in any way.
     fn unlink_edge(
         &mut self,
-        node: NodeIndex,
+        node: F::Node,
         direction: Direction,
-        edge: EdgeIndex,
-        next_edge: Option<EdgeIndex>,
+        edge: F::Edge,
+        next_edge: Option<F::Edge>,
     ) {
         println!(
             "unlink_edge(node={:?}, direction={:?}, edge={:?}, next_edge={:?})",
@@ -195,7 +200,7 @@ impl<F: VecFamily> Relation<F> {
         let mut cur_edge;
 
         {
-            let node_data = &mut self[node];
+            let node_data = self.node_mut(node);
             cur_edge = node_data.first_edges[direction].unwrap();
             if cur_edge == edge {
                 node_data.first_edges[direction] = next_edge;
@@ -204,7 +209,7 @@ impl<F: VecFamily> Relation<F> {
         }
 
         loop {
-            let edge_data = &mut self[cur_edge];
+            let edge_data = self.edge_mut(cur_edge);
             cur_edge = edge_data.next_edges[direction].unwrap();
             if cur_edge == edge {
                 edge_data.next_edges[direction] = next_edge;
@@ -215,7 +220,7 @@ impl<F: VecFamily> Relation<F> {
 
     /// Remove all edges from `node`, preserving transitive
     /// relationships between other nodes.
-    pub fn remove_edges(&mut self, node: NodeIndex) {
+    pub fn remove_edges(&mut self, node: F::Node) {
         let incoming_count = self.count_edges_saturating(node, Direction::Incoming);
         if incoming_count == 0 {
             // Easy case: node with only outgoing edges (or no edges
@@ -268,13 +273,13 @@ impl<F: VecFamily> Relation<F> {
     /// Given a node that is known to have exactly one successor, move
     /// the outgoing edge to the free list, and return the node that
     /// was its target.
-    fn move_only_outgoing_edge_to_free_list(&mut self, node: NodeIndex) -> NodeIndex {
-        let edge_to_remove = self[node].first_edges.take_outgoing().unwrap();
+    fn move_only_outgoing_edge_to_free_list(&mut self, node: F::Node) -> F::Node {
+        let edge_to_remove = self.node_mut(node).first_edges.take_outgoing().unwrap();
         let successor_node;
         let successor_next;
         {
             let edge_free_list = self.edge_free_list;
-            let edge_data = &mut self[edge_to_remove];
+            let edge_data = self.edge_mut(edge_to_remove);
             debug_assert_eq!(edge_data.nodes.incoming(), node);
             successor_node = edge_data.nodes.outgoing();
             successor_next = edge_data.next_edges.outgoing();
@@ -293,13 +298,13 @@ impl<F: VecFamily> Relation<F> {
     /// Given a node that is known to have exactly one predecessor, move
     /// the incoming edge to the free list, and return the node that
     /// was its origin.
-    fn move_only_incoming_edge_to_free_list(&mut self, node: NodeIndex) -> NodeIndex {
-        let edge_to_remove = self[node].first_edges.take_incoming().unwrap();
+    fn move_only_incoming_edge_to_free_list(&mut self, node: F::Node) -> F::Node {
+        let edge_to_remove = self.node_mut(node).first_edges.take_incoming().unwrap();
         let predecessor_node;
         let predecessor_next;
         {
             let edge_free_list = self.edge_free_list;
-            let edge_data = &mut self[edge_to_remove];
+            let edge_data = self.edge_mut(edge_to_remove);
             debug_assert_eq!(edge_data.nodes.outgoing(), node);
             predecessor_node = edge_data.nodes.incoming();
             predecessor_next = edge_data.next_edges.outgoing();
@@ -329,53 +334,53 @@ impl<F: VecFamily> Relation<F> {
     ///
     //  We also take care to set `node` to `None` as otherwise, the traversal over all nodes
     //  fails and gives inconsistent results, causing tests to fail.
-    fn redirect_incoming_edges(&mut self, node: NodeIndex, successor: NodeIndex) {
-        let mut edge_to_redirect = self[node].first_edges.incoming();
+    fn redirect_incoming_edges(&mut self, node: F::Node, successor: F::Node) {
+        let mut edge_to_redirect = self.node(node).first_edges.incoming();
         while let Some(redirected_edge_ind) = edge_to_redirect {
             let tmp;
-            let first_incoming_edge_of_successor = self[successor].first_edges.incoming();
+            let first_incoming_edge_of_successor = self.node(successor).first_edges.incoming();
             {
-                let edge_to_redirect_data = &mut self[redirected_edge_ind];
+                let edge_to_redirect_data = self.edge_mut(redirected_edge_ind);
                 edge_to_redirect_data.nodes.set_outgoing(successor);
                 tmp = edge_to_redirect_data.next_edges.incoming();
                 edge_to_redirect_data
                     .next_edges
                     .set_incoming(first_incoming_edge_of_successor);
             }
-            self[successor]
+            self.node_mut(successor)
                 .first_edges
                 .set_incoming(edge_to_redirect);
             edge_to_redirect = tmp;
         }
-        self[node].first_edges.set_incoming(None);
+        self.node_mut(node).first_edges.set_incoming(None);
     }
 
-    fn redirect_outgoing_edges(&mut self, node: NodeIndex, predecessor: NodeIndex) {
-        let mut edge_to_redirect = self[node].first_edges.outgoing();
+    fn redirect_outgoing_edges(&mut self, node: F::Node, predecessor: F::Node) {
+        let mut edge_to_redirect = self.node(node).first_edges.outgoing();
         while let Some(redirected_edge_ind) = edge_to_redirect {
             let tmp;
             let first_outgoing_edge_of_predecessor =
-                self[predecessor].first_edges.outgoing();
+                self.node(predecessor).first_edges.outgoing();
             {
-                let edge_to_redirect_data = &mut self[redirected_edge_ind];
+                let edge_to_redirect_data = self.edge_mut(redirected_edge_ind);
                 edge_to_redirect_data.nodes.set_incoming(predecessor);
                 tmp = edge_to_redirect_data.next_edges.outgoing();
                 edge_to_redirect_data
                     .next_edges
                     .set_outgoing(first_outgoing_edge_of_predecessor);
             }
-            self[predecessor]
+            self.node_mut(predecessor)
                 .first_edges
                 .set_outgoing(edge_to_redirect);
             edge_to_redirect = tmp;
         }
-        self[node].first_edges.set_outgoing(None);
+        self.node_mut(node).first_edges.set_outgoing(None);
     }
 
     /// Redirects all edges coming into or out of a node, works by removing all
     /// edges, then inserting the necessary ones. Allocates twice for the list
     /// of nodes
-    fn redirect_all_edges(&mut self, node: NodeIndex) {
+    fn redirect_all_edges(&mut self, node: F::Node) {
         let successors: Vec<_> = self.successors(node).collect();
         let predecessors: Vec<_> = self.predecessors(node).collect();
 
@@ -392,8 +397,8 @@ impl<F: VecFamily> Relation<F> {
     /// Iterate over all the edge indices coming out of a
     /// node. Careful, because edge indices get invalidated by removal
     /// operations.
-    fn edges(&self, node: NodeIndex, direction: Direction) -> Edges<'_, F> {
-        let edge_index = self[node].first_edges[direction];
+    fn edges(&self, node: F::Node, direction: Direction) -> Edges<'_, F> {
+        let edge_index = self.node(node).first_edges[direction];
         Edges {
             relation: self,
             edge_index,
@@ -401,18 +406,18 @@ impl<F: VecFamily> Relation<F> {
         }
     }
 
-    pub fn successors(&self, node: NodeIndex) -> impl Iterator<Item = NodeIndex> + '_ {
+    pub fn successors(&self, node: F::Node) -> impl Iterator<Item = F::Node> + '_ {
         self.edges(node, Direction::Outgoing)
-            .map(move |edge| self[edge].nodes.outgoing())
+            .map(move |edge| self.edge(edge).nodes.outgoing())
     }
 
-    pub fn predecessors(&self, node: NodeIndex) -> impl Iterator<Item = NodeIndex> + '_ {
+    pub fn predecessors(&self, node: F::Node) -> impl Iterator<Item = F::Node> + '_ {
         self.edges(node, Direction::Incoming)
-            .map(move |edge| self[edge].nodes.incoming())
+            .map(move |edge| self.edge(edge).nodes.incoming())
     }
 
-    pub fn nodes(&self) -> impl Iterator<Item = NodeIndex> {
-        (0..self.nodes.len()).map(|i| NodeIndex::from(i))
+    pub fn nodes(&self) -> impl Iterator<Item = F::Node> {
+        (0..self.nodes.len()).map(|i| F::Node::from(i))
     }
 
     #[cfg(test)]
@@ -481,11 +486,27 @@ impl<F: VecFamily> Relation<F> {
 
         result
     }
+
+    fn node(&self, node: F::Node) -> &NodeData<F> {
+        self.nodes.get(node)
+    }
+
+    fn node_mut(&mut self, node: F::Node) -> &mut NodeData<F> {
+        self.nodes.get_mut(node)
+    }
+
+    fn edge(&self, edge: F::Edge) -> &EdgeData<F> {
+        self.edges.get(edge)
+    }
+
+    fn edge_mut(&mut self, edge: F::Edge) -> &mut EdgeData<F> {
+        self.edges.get_mut(edge)
+    }
 }
 
 struct Edges<'r, F: VecFamily + 'r> {
     relation: &'r Relation<F>,
-    edge_index: Option<EdgeIndex>,
+    edge_index: Option<F::Edge>,
     direction: Direction,
 }
 
@@ -493,53 +514,13 @@ impl<F> Iterator for Edges<'r, F>
 where
     F: VecFamily,
 {
-    type Item = EdgeIndex;
+    type Item = F::Edge;
 
-    fn next(&mut self) -> Option<EdgeIndex> {
+    fn next(&mut self) -> Option<F::Edge> {
         let current = self.edge_index;
         if let Some(edge) = current {
-            self.edge_index = self.relation[edge].next_edges[self.direction];
+            self.edge_index = self.relation.edge(edge).next_edges[self.direction];
         }
         current
-    }
-}
-
-impl<F> Index<NodeIndex> for Relation<F>
-where
-    F: VecFamily,
-{
-    type Output = NodeData;
-
-    fn index(&self, value: NodeIndex) -> &NodeData {
-        self.nodes.get(value)
-    }
-}
-
-impl<F> Index<EdgeIndex> for Relation<F>
-where
-    F: VecFamily,
-{
-    type Output = EdgeData;
-
-    fn index(&self, value: EdgeIndex) -> &EdgeData {
-        self.edges.get(value)
-    }
-}
-
-impl<F> IndexMut<NodeIndex> for Relation<F>
-where
-    F: VecFamily,
-{
-    fn index_mut(&mut self, value: NodeIndex) -> &mut NodeData {
-        self.nodes.get_mut(value)
-    }
-}
-
-impl<F> IndexMut<EdgeIndex> for Relation<F>
-where
-    F: VecFamily,
-{
-    fn index_mut(&mut self, value: EdgeIndex) -> &mut EdgeData {
-        self.edges.get_mut(value)
     }
 }

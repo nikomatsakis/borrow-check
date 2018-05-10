@@ -3,12 +3,14 @@ use crate::{EdgeData, NodeData};
 use std::fmt::Debug;
 use std::hash::Hash;
 
-pub trait VecFamily: Debug {
-    type NodeVec: IndexVec<NodeIndex, NodeData>;
-    type EdgeVec: IndexVec<EdgeIndex, EdgeData>;
+pub trait VecFamily: Debug + Default + Sized {
+    type Node: IndexType;
+    type Edge: IndexType;
+    type NodeVec: IndexVec<Self::Node, NodeData<Self>>;
+    type EdgeVec: IndexVec<Self::Edge, EdgeData<Self>>;
 }
 
-pub trait IndexType: Copy + Ord + Eq + Hash + From<usize> {
+pub trait IndexType: Copy + Debug + Ord + Eq + Hash + From<usize> {
     fn to_usize(self) -> usize;
 }
 
@@ -67,11 +69,13 @@ where
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct StdVec { }
 
 impl VecFamily for StdVec {
-    type NodeVec = Vec<NodeData>;
-    type EdgeVec = Vec<EdgeData>;
+    type Node = NodeIndex;
+    type Edge = EdgeIndex;
+    type NodeVec = Vec<NodeData<Self>>;
+    type EdgeVec = Vec<EdgeData<Self>>;
 }
 
