@@ -4,6 +4,7 @@ use crate::cli::Algorithm;
 use crate::intern;
 use crate::output::Output;
 use crate::tab_delim;
+use diff;
 use failure::Error;
 use std::fmt::Debug;
 use std::path::Path;
@@ -20,14 +21,22 @@ fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
         let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
 
         // the naive algorithm is the "reference result"
-        let naive_result = Output::compute(tables, all_facts.clone(), Algorithm::Naive, true);
+        let naive_result = Output::compute(tables, &all_facts, Algorithm::Naive, true);
 
-        let bespoke_edge_result = Output::compute(tables, all_facts, Algorithm::BespokeEdge, true);
+        let bespoke_edge_result = Output::compute(tables, &all_facts, Algorithm::BespokeEdge, true);
 
         compare(
             "bespoke-edge-subset",
             naive_result.subset(),
             bespoke_edge_result.subset(),
+        );
+
+        let bespoke_matrix_result = Output::compute(tables, &all_facts, Algorithm::BespokeMatrix, true);
+
+        compare(
+            "bespoke-matrix-subset",
+            naive_result.subset(),
+            bespoke_matrix_result.subset(),
         );
     }
 }

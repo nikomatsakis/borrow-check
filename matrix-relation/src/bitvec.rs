@@ -10,7 +10,7 @@
 
 #![allow(dead_code)]
 
-use indexed_vec::{Idx, IndexVec};
+use crate::indexed_vec::{Idx, IndexVec};
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;

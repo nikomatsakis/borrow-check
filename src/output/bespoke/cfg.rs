@@ -1,6 +1,6 @@
 use crate::facts::{AllFacts, Point};
 use crate::intern::InternerTables;
-use petgraph::Direction;
+use petgraph::{self, Direction};
 
 type InternalGraph = petgraph::graph::Graph<(), ()>;
 type InternalNode = petgraph::graph::NodeIndex;

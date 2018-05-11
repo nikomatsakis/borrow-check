@@ -12,8 +12,8 @@
 
 extern crate fxhash;
 
-mod bitvec;
-mod indexed_vec;
+pub mod bitvec;
+pub mod indexed_vec;
 mod test;
 
 use crate::bitvec::{SparseBitMatrix, SparseBitSet, SparseChunk};
@@ -35,7 +35,7 @@ use std::hash::Hash;
 /// ```notrust
 /// A --> C
 /// ```
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Relation<R: Idx + Hash> {
     adjacency: SparseBitMatrix<R, R>,
 }
@@ -51,6 +51,15 @@ impl<R: Idx + Hash> Relation<R> {
         self.adjacency.add(row1, row2)
     }
 
+    pub fn add_rows(&mut self, other: &Relation<R>, live_nodes: impl Iterator<Item = R>) -> bool {
+        let mut changed = false;
+        for node in live_nodes {
+            let row = self.adjacency.row_mut(node);
+            changed |= row.insert_chunks(other.adjacency.row(node));
+        }
+        changed
+    }
+
     #[cfg(test)]
     fn kill(&mut self, live_nodes: &[R], dead_nodes: &[R]) {
         let mut dead_bits = SparseBitSet::new();
@@ -61,7 +70,11 @@ impl<R: Idx + Hash> Relation<R> {
         self.remove_dead_nodes(live_nodes, &dead_bits)
     }
 
-    pub fn remove_dead_nodes(&mut self, live_nodes: &[R], dead_nodes: &SparseBitSet<R>) {
+    pub fn remove_dead_nodes(
+        &mut self,
+        live_nodes: impl Iterator<Item = R>,
+        dead_nodes: &SparseBitSet<R>,
+    ) {
         // First operation:
         //
         // - For each live region R1 that can reach dead-nodes:
@@ -72,7 +85,7 @@ impl<R: Idx + Hash> Relation<R> {
 
         let mut live_targets: FxHashMap<R, SparseBitSet<R>> = FxHashMap::default();
 
-        for &live_source in live_nodes {
+        for live_source in live_nodes {
             for dead_chunk in dead_nodes.chunks() {
                 let dead_targets = self.adjacency.row(live_source).contains_chunk(dead_chunk);
                 if !dead_targets.any() {
@@ -83,9 +96,9 @@ impl<R: Idx + Hash> Relation<R> {
                     // For each dead target, we have to find all the
                     // live nodes reachable from it. Those will get
                     // added to the row for `live_source`.
-                    let live_target_set = live_targets.entry(dead_target).or_insert_with(|| {
-                        self.find_live_targets(dead_target, dead_nodes)
-                    });
+                    let live_target_set = live_targets
+                        .entry(dead_target)
+                        .or_insert_with(|| self.find_live_targets(dead_target, dead_nodes));
 
                     self.adjacency
                         .row_mut(live_source)
@@ -93,8 +106,7 @@ impl<R: Idx + Hash> Relation<R> {
                 }
 
                 // Clear out the dead things.
-                self.adjacency.row_mut(live_source)
-                    .remove_chunk(dead_chunk);
+                self.adjacency.row_mut(live_source).remove_chunk(dead_chunk);
             }
         }
 
@@ -103,11 +115,7 @@ impl<R: Idx + Hash> Relation<R> {
         }
     }
 
-    fn find_live_targets(
-        &self,
-        dead_target: R,
-        dead_nodes: &SparseBitSet<R>,
-    ) -> SparseBitSet<R> {
+    fn find_live_targets(&self, dead_target: R, dead_nodes: &SparseBitSet<R>) -> SparseBitSet<R> {
         let mut result = SparseBitSet::new();
         result.insert_chunk(SparseChunk::one(dead_target));
         let mut queue = vec![SparseChunk::one(dead_target)];
@@ -142,6 +150,10 @@ impl<R: Idx + Hash> Relation<R> {
         }
 
         result
+    }
+
+    pub fn successors(&self, node: R) -> impl Iterator<Item = R> + '_ {
+        self.adjacency.row(node).iter()
     }
 
     #[cfg(test)]

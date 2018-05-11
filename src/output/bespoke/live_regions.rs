@@ -1,10 +1,13 @@
 use crate::facts::{AllFacts, Point, Region};
 use crate::intern::InternerTables;
+use fxhash::FxHashMap;
+use matrix_relation::bitvec::{SparseBitSet, SparseChunk};
 use std::collections::BTreeSet;
 
 crate struct LiveRegions {
     live_regions: Vec<BTreeSet<Region>>,
     active_regions: Vec<BTreeSet<Region>>,
+    dying_regions: FxHashMap<(Point, Point), SparseBitSet<Region>>,
 }
 
 impl LiveRegions {
@@ -24,9 +27,25 @@ impl LiveRegions {
             set.insert(*r2);
         }
 
+        let mut dying_regions = FxHashMap::default();
+        for &(p, q) in &all_facts.cfg_edge {
+            let mut bit_set = SparseBitSet::new();
+            let active_at_p = &active_regions[p.index()];
+            let live_at_q = &live_regions[q.index()];
+            for r in active_at_p
+                .iter()
+                .cloned()
+                .filter(move |r| !live_at_q.contains(r))
+            {
+                bit_set.insert_chunk(SparseChunk::one(r));
+            }
+            dying_regions.insert((p, q), bit_set);
+        }
+
         LiveRegions {
             live_regions,
             active_regions,
+            dying_regions,
         }
     }
 
@@ -38,9 +57,7 @@ impl LiveRegions {
         &self.live_regions[point.index()]
     }
 
-    crate fn dying_on_edge(&self, p: Point, q: Point) -> impl Iterator<Item = Region> + '_ {
-        let active_at_p = &self.active_regions[p.index()];
-        let live_at_q = &self.live_regions[q.index()];
-        active_at_p.iter().cloned().filter(move |r| !live_at_q.contains(r))
+    crate fn dying_on_edge(&self, p: Point, q: Point) -> Option<&SparseBitSet<Region>> {
+        self.dying_regions.get(&(p, q))
     }
 }

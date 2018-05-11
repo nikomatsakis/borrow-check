@@ -10,6 +10,7 @@ arg_enum! {
     pub enum Algorithm {
         Naive,
         BespokeEdge,
+        BespokeMatrix,
     }
 }
 
@@ -45,7 +46,7 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                 let verbose = opt.verbose | opt.stats;
                 let algorithm = opt.algorithm;
                 let all_facts = tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
-                Output::compute(tables, all_facts, algorithm, verbose)
+                Output::compute(tables, &all_facts, algorithm, verbose)
             };
 
             match result {

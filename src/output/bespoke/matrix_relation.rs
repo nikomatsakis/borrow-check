@@ -2,15 +2,24 @@ use crate::facts::Region;
 use crate::output::bespoke::SubsetRelation;
 use fxhash::FxHashSet;
 use matrix_relation::bitvec::SparseBitSet;
-use relation::vec_family::StdVec;
-use relation::Relation;
+use matrix_relation::{indexed_vec::Idx, Relation};
 use std::collections::BTreeSet;
 
-pub struct EdgeSubsetRelation {
-    data: Relation<StdVec<Region>>,
+pub struct MatrixRelation {
+    data: Relation<Region>,
 }
 
-impl Clone for EdgeSubsetRelation {
+impl Idx for Region {
+    fn new(idx: usize) -> Self {
+        Region::from(idx)
+    }
+
+    fn index(self) -> usize {
+        self.into()
+    }
+}
+
+impl Clone for MatrixRelation {
     fn clone(&self) -> Self {
         Self {
             data: self.data.clone(),
@@ -18,17 +27,19 @@ impl Clone for EdgeSubsetRelation {
     }
 }
 
-impl SubsetRelation for EdgeSubsetRelation {
+impl SubsetRelation for MatrixRelation {
     fn empty(num_regions: usize) -> Self {
         Self {
             data: Relation::new(num_regions),
         }
     }
 
-    fn kill_region(&mut self, _live_regions: impl Iterator<Item = Region>, dead_regions: &SparseBitSet<Region>) {
-        for r in dead_regions.iter() {
-            self.data.remove_edges(r);
-        }
+    fn kill_region(
+        &mut self,
+        live_regions: impl Iterator<Item = Region>,
+        dead_regions: &SparseBitSet<Region>,
+    ) {
+        self.data.remove_dead_nodes(live_regions, dead_regions)
     }
 
     fn insert_one(&mut self, r1: Region, r2: Region) -> bool {
@@ -36,13 +47,7 @@ impl SubsetRelation for EdgeSubsetRelation {
     }
 
     fn insert_all(&mut self, other: &Self, live_regions: &BTreeSet<Region>) -> bool {
-        let mut changed = false;
-        for &r in live_regions {
-            for succ_r in other.data.successors(r) {
-                changed |= self.data.add_edge(r, succ_r);
-            }
-        }
-        changed
+        self.data.add_rows(&other.data, live_regions.iter().cloned())
     }
 
     fn for_each_reachable(&self, r1: Region, mut op: impl FnMut(Region)) {

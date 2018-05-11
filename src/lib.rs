@@ -9,11 +9,15 @@
 
 extern crate abomonation;
 extern crate abomonation_derive;
+#[cfg(test)] extern crate diff;
 extern crate differential_dataflow;
 extern crate failure;
 extern crate fxhash;
+extern crate matrix_relation;
 extern crate histo;
 extern crate timely;
+extern crate petgraph;
+extern crate relation;
 extern crate structopt;
 
 #[macro_use]

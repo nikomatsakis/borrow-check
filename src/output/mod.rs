@@ -40,13 +40,14 @@ crate struct Output {
 impl Output {
     crate fn compute(
         tables: &InternerTables,
-        all_facts: AllFacts,
+        all_facts: &AllFacts,
         algorithm: Algorithm,
         dump_enabled: bool,
     ) -> Self {
         match algorithm {
-            Algorithm::Naive => timely::timely_dataflow(dump_enabled, all_facts),
+            Algorithm::Naive => timely::timely_dataflow(dump_enabled, all_facts.clone()),
             Algorithm::BespokeEdge => bespoke::edge(tables, dump_enabled, all_facts),
+            Algorithm::BespokeMatrix => bespoke::matrix(tables, dump_enabled, all_facts),
         }
     }
 

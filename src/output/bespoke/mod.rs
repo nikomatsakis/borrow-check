@@ -11,6 +11,7 @@
 use crate::facts::{AllFacts, Point, Region};
 use crate::intern::InternerTables;
 use crate::output::Output;
+use matrix_relation::bitvec::SparseBitSet;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use std::time::Instant;
@@ -21,16 +22,25 @@ use self::cfg::ControlFlowGraph;
 mod edge_relation;
 use self::edge_relation::EdgeSubsetRelation;
 
+mod matrix_relation;
+use self::matrix_relation::MatrixRelation;
+
 mod live_regions;
 use self::live_regions::LiveRegions;
 
 mod worklist;
 use self::worklist::WorkList;
 
-crate fn edge(tables: &InternerTables, dump_enabled: bool, all_facts: AllFacts) -> Output {
+crate fn edge(tables: &InternerTables, dump_enabled: bool, all_facts: &AllFacts) -> Output {
     let live_regions = &LiveRegions::from(tables, &all_facts);
 
     do_computation::<EdgeSubsetRelation>(tables, live_regions, dump_enabled, &all_facts)
+}
+
+crate fn matrix(tables: &InternerTables, dump_enabled: bool, all_facts: &AllFacts) -> Output {
+    let live_regions = &LiveRegions::from(tables, &all_facts);
+
+    do_computation::<MatrixRelation>(tables, live_regions, dump_enabled, &all_facts)
 }
 
 // Compute the DYING regions at each point. A region R is DYING at a
@@ -47,7 +57,11 @@ crate fn edge(tables: &InternerTables, dump_enabled: bool, all_facts: AllFacts) 
 
 trait SubsetRelation: Clone {
     fn empty(num_regions: usize) -> Self;
-    fn kill_region(&mut self, r1: Region);
+    fn kill_region(
+        &mut self,
+        live_regions: impl Iterator<Item = Region>,
+        dying_on_edge: &SparseBitSet<Region>,
+    );
     fn insert_one(&mut self, r1: Region, r2: Region) -> bool; // true if changed
 
     // true if changed
@@ -66,7 +80,7 @@ fn do_computation<SR: SubsetRelation>(
 
     let start = Instant::now();
     let subset =
-        compute_subset::<EdgeSubsetRelation>(tables, live_regions, cfg, dump_enabled, &all_facts);
+        compute_subset::<SR>(tables, live_regions, cfg, dump_enabled, &all_facts);
     let duration = start.elapsed();
 
     let mut output = Output::new(dump_enabled);
@@ -153,8 +167,9 @@ fn compute_subset<SR: SubsetRelation>(
             // be. For example, if there are multiple successors,
             // likely there will be regions that are dead on *all* of
             // them, and that work is repeated.
-            for r in live_regions.dying_on_edge(p, q) {
-                Rc::make_mut(&mut rpp_p).kill_region(r);
+            if let Some(dying_on_edge) = live_regions.dying_on_edge(p, q) {
+                let live_at_p = live_regions.live_regions_at(p);
+                Rc::make_mut(&mut rpp_p).kill_region(live_at_p.iter().cloned(), dying_on_edge);
             }
 
             let mut rpp_q_slot = &mut relations_per_point[q.index()];
