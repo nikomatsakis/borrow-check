@@ -318,7 +318,7 @@ fn scratch_random() {
     let mut rng = rand::StdRng::from_seed(&[1,2,3,4]);
     let rng = &mut rng;
 
-    for _ in 0..300 {
+    for _ in 0..1000 {
         let (mut src, mut dst) = (range.ind_sample(rng), range.ind_sample(rng));
         while src == dst {
             src = range.ind_sample(rng);
@@ -355,4 +355,94 @@ fn remove_middles() {
                "free edge E(3)",
               ]);
     r.remove_edges(3);
+}
+
+#[test]
+fn scratch_shrink() {
+    let mut r = StdVecRelation::new(5);
+    r.add_edge(0, 1);
+    r.add_edge(2, 3);
+    r.add_edge(3, 0);
+    r.add_edge(0, 4);
+    r.add_edge(1, 2);
+    test(&r, &["N(0) --E(3)--> N(4)",
+               "N(0) --E(0)--> N(1)",
+               "N(1) --E(4)--> N(2)",
+               "N(2) --E(1)--> N(3)",
+               "N(3) --E(2)--> N(0)",
+              ]);
+    r.remove_edges(2);
+    test(&r, &["N(0) --E(3)--> N(4)",
+               "N(0) --E(0)--> N(1)",
+               "N(1) --E(4)--> N(3)",
+               "N(3) --E(2)--> N(0)",
+               "free edge E(1)",
+              ]);
+    r.remove_edges(3);
+    test(&r, &["N(0) --E(3)--> N(4)",
+               "N(0) --E(0)--> N(1)",
+               "N(1) --E(4)--> N(0)",
+               "free edge E(2)",
+               "free edge E(1)",
+              ]);
+    r.remove_edges(0);
+    test(&r, &["N(1) --E(0)--> N(1)",
+               "N(1) --E(3)--> N(4)",
+               "free edge E(4)",
+               "free edge E(2)",
+               "free edge E(1)",
+              ]);
+    r.remove_edges(1);
+    test(&r, &["free edge E(3)",
+               "free edge E(0)",
+               "free edge E(4)",
+               "free edge E(2)",
+               "free edge E(1)",
+              ]);
+}
+
+#[test]
+fn same_src_dest() {
+    let mut r = StdVecRelation::new(2);
+    r.add_edge(0,1);
+    r.add_edge(1,1);
+    test(&r, &["N(0) --E(0)--> N(1)",
+              ]);
+}
+
+#[test]
+fn loop_inner() {
+    let mut r = StdVecRelation::new(6);
+    r.add_edge(0,2);
+    r.add_edge(1,2);
+    r.add_edge(2,3);
+    r.add_edge(3,2);
+    r.add_edge(2,4);
+    r.add_edge(2,5);
+
+    test(&r, &["N(0) --E(0)--> N(2)",
+               "N(1) --E(1)--> N(2)",
+               "N(2) --E(5)--> N(5)",
+               "N(2) --E(4)--> N(4)",
+               "N(2) --E(2)--> N(3)",
+               "N(3) --E(3)--> N(2)",
+              ]);
+
+    r.remove_edges(3);
+    test(&r, &["N(0) --E(0)--> N(2)",
+               "N(1) --E(1)--> N(2)",
+               "N(2) --E(5)--> N(5)",
+               "N(2) --E(4)--> N(4)",
+               "N(2) --E(2)--> N(2)",
+               "free edge E(3)",
+              ]);
+
+    r.remove_edges(2);
+    test(&r, &["N(0) --E(4)--> N(4)",
+               "N(0) --E(1)--> N(5)",
+               "N(1) --E(2)--> N(4)",
+               "N(1) --E(0)--> N(5)",
+               "free edge E(5)",
+               "free edge E(3)",
+              ]);
 }

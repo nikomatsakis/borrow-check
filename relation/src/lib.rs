@@ -121,6 +121,10 @@ impl<F: VecFamily> Relation<F> {
     pub fn add_edge(&mut self, predecessor: F::UserNode, successor: F::UserNode) -> bool {
         let predecessor = F::into_node(predecessor);
         let successor = F::into_node(successor);
+        if predecessor == successor {
+            // Don't allow the insertion of loopback edges.
+            return false;
+        }
         self.add_edge_internal(predecessor, successor)
     }
 
@@ -266,6 +270,9 @@ impl<F: VecFamily> Relation<F> {
             //     |
             // B --+
             let successor = self.move_only_outgoing_edge_to_free_list(node);
+            if node == successor {
+                return self.move_edges_to_free_list(node, Direction::Incoming);
+            }
             return self.redirect_incoming_edges(node, successor);
         }
 
@@ -281,6 +288,9 @@ impl<F: VecFamily> Relation<F> {
             //
             //
             let predecessor = self.move_only_incoming_edge_to_free_list(node);
+            if node == predecessor {
+                return self.move_edges_to_free_list(node, Direction::Outgoing);
+            }
             return self.redirect_outgoing_edges(node, predecessor);
         }
 
@@ -301,7 +311,7 @@ impl<F: VecFamily> Relation<F> {
             let edge_data = self.edge_mut(edge_to_remove);
             debug_assert_eq!(edge_data.nodes.incoming(), node);
             successor_node = edge_data.nodes.outgoing();
-            successor_next = edge_data.next_edges.outgoing();
+            successor_next = edge_data.next_edges.incoming();
             edge_data.next_edges.set_outgoing(edge_free_list);
         }
         self.unlink_edge(
@@ -405,7 +415,9 @@ impl<F: VecFamily> Relation<F> {
         self.move_edges_to_free_list(node, Direction::Outgoing);
         self.move_edges_to_free_list(node, Direction::Incoming);
         for s in successors {
+            if s == node { continue; }
             for &p in predecessors.iter() {
+                if p == node { continue; }
                 self.add_edge_internal(p, s);
             }
         }
