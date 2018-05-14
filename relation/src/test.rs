@@ -335,7 +335,7 @@ fn scratch_random() {
 }
 
 #[test]
-fn scratch_explicit() {
+fn remove_middles() {
     // This case started by using the operations from above, and then
     // deleting rows that still made it fail, then renumbering.
     let mut r = StdVecRelation::new(5);
@@ -343,6 +343,16 @@ fn scratch_explicit() {
     r.add_edge(2, 3);
     r.add_edge(3, 4);
     r.add_edge(1, 4);
+    test(&r, &["N(0) --E(0)--> N(1)",
+               "N(1) --E(3)--> N(4)",
+               "N(2) --E(1)--> N(3)",
+               "N(3) --E(2)--> N(4)",
+              ]);
     r.remove_edges(1);
+    test(&r, &["N(0) --E(0)--> N(4)",
+               "N(2) --E(1)--> N(3)",
+               "N(3) --E(2)--> N(4)",
+               "free edge E(3)",
+              ]);
     r.remove_edges(3);
 }
