@@ -11,6 +11,9 @@
 #![feature(nonzero)]
 // #![feature(infer_outlives_requirements)]
 
+#[cfg(test)]
+extern crate rand;
+
 pub mod indices;
 mod test;
 pub mod vec_family;

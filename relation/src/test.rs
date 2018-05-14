@@ -1,5 +1,9 @@
 #![cfg(test)]
 
+use rand::{self, SeedableRng};
+use rand::distributions::range::Range;
+use rand::distributions::IndependentSample;
+
 use crate::vec_family::{StdVec, VecFamily};
 use crate::Relation;
 
@@ -304,4 +308,28 @@ fn multi_in_multi_out() {
                "N(1) --E(2)--> N(3)",
                "N(1) --E(0)--> N(4)",
               ]);
+}
+
+#[test]
+fn scratch_random() {
+    let mut r = StdVecRelation::new(1000);
+    let range = Range::new(0, 1000);
+
+    let mut rng = rand::StdRng::from_seed(&[1,2,3,4]);
+    let rng = &mut rng;
+
+    for _ in 0..300 {
+        let (mut src, mut dst) = (range.ind_sample(rng), range.ind_sample(rng));
+        while src == dst {
+            src = range.ind_sample(rng);
+            dst = range.ind_sample(rng);
+        }
+        println!("add edge from {:?} to {:?}", src, dst);
+        r.add_edge(src, dst);
+    }
+
+    for i in 0..1000 {
+        println!("remove edges from {:?}", i);
+        r.remove_edges(i);
+    }
 }
