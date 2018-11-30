@@ -15,12 +15,14 @@ use std::collections::{BTreeMap, BTreeSet};
 mod datafrog_opt;
 mod location_insensitive;
 mod naive;
+mod reachable;
 use facts::{AllFacts, Atom};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Algorithm {
     Naive,
     DatafrogOpt,
+    Reachable,
     LocationInsensitive,
     /// Compare Naive and DatafrogOpt.
     Compare,
@@ -28,10 +30,16 @@ pub enum Algorithm {
 
 impl Algorithm {
     /// Optimized variants that ought to be equivalent to "naive"
-    pub const OPTIMIZED: &'static [Algorithm] = &[Algorithm::DatafrogOpt];
+    pub const OPTIMIZED: &'static [Algorithm] = &[Algorithm::DatafrogOpt, Algorithm::Reachable];
 
-    pub fn variants() -> [&'static str; 4] {
-        ["Naive", "DatafrogOpt", "LocationInsensitive", "Compare"]
+    pub fn variants() -> &'static [&'static str] {
+        &[
+            "Naive",
+            "DatafrogOpt",
+            "Reachable",
+            "LocationInsensitive",
+            "Compare",
+        ]
     }
 }
 
@@ -41,6 +49,7 @@ impl ::std::str::FromStr for Algorithm {
         match s.to_lowercase().as_ref() {
             "naive" => Ok(Algorithm::Naive),
             "datafrogopt" => Ok(Algorithm::DatafrogOpt),
+            "reachable" => Ok(Algorithm::Reachable),
             "locationinsensitive" => Ok(Algorithm::LocationInsensitive),
             "compare" => Ok(Algorithm::Compare),
             _ => Err(String::from(
@@ -116,6 +125,7 @@ where
         match algorithm {
             Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone()),
             Algorithm::DatafrogOpt => datafrog_opt::compute(dump_enabled, all_facts.clone()),
+            Algorithm::Reachable => reachable::compute(dump_enabled, all_facts.clone()),
             Algorithm::LocationInsensitive => {
                 location_insensitive::compute(dump_enabled, all_facts.clone())
             }

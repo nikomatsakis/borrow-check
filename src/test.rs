@@ -41,6 +41,11 @@ macro_rules! tests {
                 fn datafrog_opt() -> Result<(), Error> {
                     test_fn($dir, $fn, Algorithm::DatafrogOpt)
                 }
+
+                #[test]
+                fn reachable() -> Result<(), Error> {
+                    test_fn($dir, $fn, Algorithm::Reachable)
+                }
             }
         )*
     }
